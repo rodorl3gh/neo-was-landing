@@ -1,0 +1,9 @@
+[phases.setup]
+nixPkgs = ["nodejs_20", "python3", "gcc", "gnumake"]
+env = { TZ = "America/Mexico_City" }
+
+[phases.build]
+cmds = ["npm run build"]
+
+[start]
+cmd = "npm start"
