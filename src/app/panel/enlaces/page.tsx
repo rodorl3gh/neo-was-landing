@@ -124,7 +124,7 @@ export default function EnlacesPage() {
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: "0.7rem" }}>
             {enlaces.map((e) => (
-              <div key={e.id} style={{ display: "flex", alignItems: "center", gap: "0.8rem", padding: "0.9rem 1rem", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "0.875rem" }}>
+              <div key={e.id} className="enlace-card" style={{ display: "flex", alignItems: "center", gap: "0.8rem", padding: "0.9rem 1rem", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "0.875rem" }}>
                 <div style={{ width: "2.4rem", height: "2.4rem", borderRadius: "0.7rem", background: "var(--accent-soft)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                   <Link2 size={18} color="var(--accent)" />
                 </div>
@@ -135,7 +135,7 @@ export default function EnlacesPage() {
                     <div style={{ fontSize: "0.72rem", color: "var(--cyan)", marginTop: "0.15rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.url}</div>
                   )}
                 </div>
-                <div style={{ display: "flex", gap: "0.35rem", flexShrink: 0 }}>
+                <div className="enlace-actions" style={{ display: "flex", gap: "0.35rem", flexShrink: 0 }}>
                   {e.url && e.url !== "#" && (
                     <a href={e.url} target="_blank" rel="noopener noreferrer" style={iconBtn} title="Abrir">
                       <ExternalLink size={16} />
@@ -210,7 +210,13 @@ export default function EnlacesPage() {
         </>
       )}
 
-      <style jsx>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      <style jsx>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @media (max-width: 560px) {
+          .enlace-card { flex-wrap: wrap; }
+          .enlace-actions { width: 100%; justify-content: flex-end; margin-top: 0.25rem; }
+        }
+      `}</style>
     </PanelShell>
   );
 }

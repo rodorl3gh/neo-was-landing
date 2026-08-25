@@ -196,6 +196,7 @@ export default function PanelShell({ title, children }: { title: string; childre
 
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
         <header
+          className="panel-header"
           style={{
             display: "flex",
             alignItems: "center",
@@ -219,6 +220,7 @@ export default function PanelShell({ title, children }: { title: string; childre
             {username && (
               <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
                 <span
+                  className="role-badge"
                   style={{
                     fontSize: "0.68rem",
                     fontWeight: 600,
@@ -233,14 +235,14 @@ export default function PanelShell({ title, children }: { title: string; childre
                 </span>
                 <span style={{ fontSize: "0.78rem", color: "var(--sidebar-text)", display: "flex", alignItems: "center", gap: "0.45rem" }}>
                   <span style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--mint)" }} />
-                  {username}
+                  <span className="username-text">{username}</span>
                 </span>
               </div>
             )}
           </div>
         </header>
 
-        <main style={{ flex: 1, padding: "1.5rem", background: "var(--bg)" }}>{children}</main>
+        <main className="panel-main" style={{ flex: 1, padding: "1.5rem", background: "var(--bg)" }}>{children}</main>
       </div>
 
       <style jsx>{`
@@ -253,6 +255,12 @@ export default function PanelShell({ title, children }: { title: string; childre
           .sidebar-desktop { display: none !important; }
           .sidebar-mobile { display: block !important; }
           .mobile-menu-btn { display: flex !important; }
+          .panel-header { padding: 0.7rem 1rem !important; }
+          .panel-main { padding: 1rem !important; }
+          .role-badge { display: none !important; }
+        }
+        @media (max-width: 420px) {
+          .username-text { display: none !important; }
         }
       `}</style>
     </div>
