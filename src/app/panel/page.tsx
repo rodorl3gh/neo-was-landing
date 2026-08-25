@@ -1,23 +1,13 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Link2, Target, Wallet, Users, UserPlus, FileText, CalendarDays, MessageCircle, Layers, ArrowRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import PanelShell from "@/components/panel/PanelShell";
-
-const MODULES = [
-  { label: "Enlaces", desc: "Accesos y recursos del equipo", icon: Link2, href: "/panel/enlaces", ready: true },
-  { label: "Metas", desc: "Objetivos por integrante y área", icon: Target, ready: false },
-  { label: "Contabilidad", desc: "Ingresos, egresos y facturación", icon: Wallet, ready: false },
-  { label: "Clientes", desc: "Datos y servicios de clientes", icon: Users, ready: false },
-  { label: "Prospectos", desc: "Pipeline de nuevos prospectos", icon: UserPlus, ready: false },
-  { label: "Procesos", desc: "Trabajo activo con cada cliente", icon: Layers, ready: false },
-  { label: "Contratos", desc: "Plantillas y contratos por cliente", icon: FileText, ready: false },
-  { label: "Calendario", desc: "Agenda sincronizada con Google", icon: CalendarDays, ready: false },
-  { label: "Asistente", desc: "Trabaja por voz o mensaje", icon: MessageCircle, ready: false },
-];
+import { MODULES } from "@/components/panel/modules";
 
 export default function DashboardPage() {
   const router = useRouter();
+  const modules = MODULES.filter((m) => m.href !== "/panel");
 
   return (
     <PanelShell title="Dashboard">
@@ -32,44 +22,39 @@ export default function DashboardPage() {
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(15rem, 1fr))", gap: "0.9rem" }}>
-          {MODULES.map((m) => {
+          {modules.map((m) => {
             const Icon = m.icon;
             return (
               <button
-                key={m.label}
-                onClick={() => m.ready && m.href && router.push(m.href)}
+                key={m.href}
+                onClick={() => router.push(m.href)}
                 style={{
                   display: "flex",
                   flexDirection: "column",
                   gap: "0.6rem",
                   padding: "1.25rem",
-                  background: "var(--bg-secondary)",
+                  background: "var(--surface)",
                   border: "1px solid var(--border)",
                   borderRadius: "0.875rem",
                   textAlign: "left",
-                  cursor: m.ready ? "pointer" : "default",
-                  opacity: m.ready ? 1 : 0.55,
+                  cursor: "pointer",
                   transition: "all 0.15s ease",
                   fontFamily: "inherit",
                 }}
                 onMouseOver={(e) => {
-                  if (m.ready) e.currentTarget.style.borderColor = "var(--accent)";
+                  e.currentTarget.style.borderColor = "var(--cyan)";
+                  e.currentTarget.style.transform = "translateY(-2px)";
                 }}
                 onMouseOut={(e) => {
-                  if (m.ready) e.currentTarget.style.borderColor = "var(--border)";
+                  e.currentTarget.style.borderColor = "var(--border)";
+                  e.currentTarget.style.transform = "none";
                 }}
               >
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                   <div style={{ width: "2.4rem", height: "2.4rem", borderRadius: "0.7rem", background: "var(--accent-soft)", display: "flex", alignItems: "center", justifyContent: "center" }}>
                     <Icon size={18} color="var(--accent)" />
                   </div>
-                  {m.ready ? (
-                    <ArrowRight size={16} color="var(--text-muted)" />
-                  ) : (
-                    <span style={{ fontSize: "0.6rem", fontWeight: 600, color: "var(--text-muted)", background: "var(--bg-tertiary)", padding: "0.12rem 0.45rem", borderRadius: "9999px" }}>
-                      Pronto
-                    </span>
-                  )}
+                  <ArrowRight size={16} color="var(--text-muted)" />
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: "0.15rem" }}>
                   <span style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--text)", fontFamily: "var(--font-display)" }}>{m.label}</span>

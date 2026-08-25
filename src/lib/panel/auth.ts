@@ -3,7 +3,7 @@ import { createHash, createHmac, timingSafeEqual } from "crypto";
 const SALT = "wasito_salt_";
 const TOKEN_SECRET = process.env.AUTH_TOKEN_SECRET || "wasito-token-secret-2026";
 
-export type Role = "admin";
+export type Role = "admin" | "developer";
 
 export function hashPassword(pass: string): string {
   return createHash("sha256").update(SALT + pass).digest("hex");

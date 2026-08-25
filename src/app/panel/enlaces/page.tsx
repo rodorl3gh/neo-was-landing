@@ -118,13 +118,13 @@ export default function EnlacesPage() {
             <div style={{ width: 30, height: 30, borderRadius: "50%", border: "3px solid var(--border)", borderTopColor: "var(--accent)", animation: "spin 0.8s linear infinite" }} />
           </div>
         ) : enlaces.length === 0 ? (
-          <div style={{ padding: "2.5rem 1rem", textAlign: "center", color: "var(--text-muted)", background: "var(--bg-secondary)", border: "1px dashed var(--border)", borderRadius: "0.875rem" }}>
+          <div style={{ padding: "2.5rem 1rem", textAlign: "center", color: "var(--text-muted)", background: "var(--surface)", border: "1px dashed var(--border)", borderRadius: "0.875rem" }}>
             <p style={{ fontSize: "0.9rem", margin: 0 }}>Aún no hay enlaces. Agrega el primero.</p>
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: "0.7rem" }}>
             {enlaces.map((e) => (
-              <div key={e.id} style={{ display: "flex", alignItems: "center", gap: "0.8rem", padding: "0.9rem 1rem", background: "var(--bg-secondary)", border: "1px solid var(--border)", borderRadius: "0.875rem" }}>
+              <div key={e.id} style={{ display: "flex", alignItems: "center", gap: "0.8rem", padding: "0.9rem 1rem", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "0.875rem" }}>
                 <div style={{ width: "2.4rem", height: "2.4rem", borderRadius: "0.7rem", background: "var(--accent-soft)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                   <Link2 size={18} color="var(--accent)" />
                 </div>
@@ -163,7 +163,7 @@ export default function EnlacesPage() {
               top: "50%",
               left: "50%",
               transform: "translate(-50%,-50%)",
-              background: "var(--bg-secondary)",
+              background: "var(--surface)",
               border: "1px solid var(--border)",
               borderRadius: "1rem",
               padding: "1.5rem",
@@ -234,7 +234,7 @@ const iconBtn: React.CSSProperties = {
   width: "2rem",
   height: "2rem",
   borderRadius: "0.5rem",
-  background: "var(--bg-tertiary)",
+  background: "var(--surface-2)",
   border: "1px solid var(--border)",
   display: "flex",
   alignItems: "center",
@@ -248,7 +248,7 @@ const fieldGroup: React.CSSProperties = { display: "flex", flexDirection: "colum
 const lbl: React.CSSProperties = { fontSize: "0.78rem", fontWeight: 500, color: "var(--text-secondary)" };
 const input: React.CSSProperties = {
   padding: "0.55rem 0.75rem",
-  background: "var(--bg-tertiary)",
+  background: "var(--surface-2)",
   border: "1px solid var(--border)",
   borderRadius: "0.5rem",
   color: "var(--text)",

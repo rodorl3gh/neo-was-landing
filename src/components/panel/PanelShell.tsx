@@ -2,45 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import {
-  LayoutDashboard,
-  Link2,
-  Target,
-  Wallet,
-  Users,
-  UserPlus,
-  FileText,
-  CalendarDays,
-  MessageCircle,
-  Layers,
-  Sun,
-  Moon,
-  LogOut,
-  Menu,
-  X,
-} from "lucide-react";
+import { Sun, Moon, LogOut, Menu, X } from "lucide-react";
 import { useTheme } from "./theme";
 import { apiGet, clearToken, getToken } from "@/lib/panel/api";
-
-interface NavItem {
-  href: string;
-  label: string;
-  icon: React.ComponentType<{ size?: number; color?: string }>;
-  ready: boolean;
-}
-
-const NAV_ITEMS: NavItem[] = [
-  { href: "/panel", label: "Dashboard", icon: LayoutDashboard, ready: true },
-  { href: "/panel/enlaces", label: "Enlaces", icon: Link2, ready: true },
-  { href: "#", label: "Metas", icon: Target, ready: false },
-  { href: "#", label: "Contabilidad", icon: Wallet, ready: false },
-  { href: "#", label: "Clientes", icon: Users, ready: false },
-  { href: "#", label: "Prospectos", icon: UserPlus, ready: false },
-  { href: "#", label: "Procesos", icon: Layers, ready: false },
-  { href: "#", label: "Contratos", icon: FileText, ready: false },
-  { href: "#", label: "Calendario", icon: CalendarDays, ready: false },
-  { href: "#", label: "Asistente", icon: MessageCircle, ready: false },
-];
+import { MODULES, ROLE_LABELS } from "./modules";
 
 export default function PanelShell({ title, children }: { title: string; children: React.ReactNode }) {
   const router = useRouter();
@@ -48,6 +13,7 @@ export default function PanelShell({ title, children }: { title: string; childre
   const { theme, toggle } = useTheme();
   const [ready, setReady] = useState(false);
   const [username, setUsername] = useState("");
+  const [role, setRole] = useState("");
   const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
@@ -56,13 +22,14 @@ export default function PanelShell({ title, children }: { title: string; childre
       router.replace("/panel/login");
       return;
     }
-    apiGet<{ valid: boolean; username: string | null }>("/api/panel/auth")
+    apiGet<{ valid: boolean; username: string | null; role: string | null }>("/api/panel/auth")
       .then((d) => {
         if (!d.valid) {
           clearToken();
           router.replace("/panel/login");
         } else {
           setUsername(d.username || "");
+          setRole(d.role || "");
           setReady(true);
         }
       })
@@ -96,49 +63,44 @@ export default function PanelShell({ title, children }: { title: string; childre
   }
 
   const sidebar = (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", padding: "1.25rem", gap: "0.25rem" }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", padding: "1.25rem", gap: "0.25rem", background: "var(--sidebar)" }}>
       <div style={{ display: "flex", alignItems: "center", gap: "0.7rem", marginBottom: "1.4rem", padding: "0 0.25rem" }}>
         <div
           style={{
             width: "2.5rem",
             height: "2.5rem",
-            borderRadius: "0.75rem",
-            background: "var(--primary)",
-            color: "var(--gold)",
+            borderRadius: "0.7rem",
+            background: "linear-gradient(135deg, #36afc0, #1be0b5)",
+            color: "#04121a",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             fontWeight: 800,
             fontFamily: "var(--font-display)",
-            fontSize: "1.1rem",
+            fontSize: "1.15rem",
             flexShrink: 0,
           }}
         >
           W
         </div>
         <div style={{ display: "flex", flexDirection: "column" }}>
-          <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "1.15rem", color: "var(--text)", lineHeight: 1.1 }}>
+          <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "1.15rem", color: "var(--sidebar-text)", lineHeight: 1.1 }}>
             Wasito
           </span>
-          <span style={{ fontSize: "0.68rem", color: "var(--text-muted)", letterSpacing: "0.06em", textTransform: "uppercase" }}>
-            Neo Was
-          </span>
+          <span style={{ fontSize: "0.66rem", color: "var(--sidebar-muted)", letterSpacing: "0.08em", textTransform: "uppercase" }}>Neo Was</span>
         </div>
       </div>
 
-      <nav style={{ flex: 1, display: "flex", flexDirection: "column", gap: "0.2rem" }}>
-        {NAV_ITEMS.map((item) => {
+      <nav style={{ flex: 1, display: "flex", flexDirection: "column", gap: "0.2rem", overflowY: "auto" }}>
+        {MODULES.map((item) => {
           const Icon = item.icon;
-          const isActive = item.ready && (item.href === "/panel" ? pathname === "/panel" : pathname.startsWith(item.href));
+          const isActive = item.href === "/panel" ? pathname === "/panel" : pathname.startsWith(item.href);
           return (
             <button
-              key={item.label}
-              disabled={!item.ready}
+              key={item.href}
               onClick={() => {
-                if (item.ready) {
-                  router.push(item.href);
-                  setMobileOpen(false);
-                }
+                router.push(item.href);
+                setMobileOpen(false);
               }}
               style={{
                 display: "flex",
@@ -148,47 +110,50 @@ export default function PanelShell({ title, children }: { title: string; childre
                 padding: "0.62rem 0.75rem",
                 borderRadius: "0.625rem",
                 border: "none",
-                background: isActive ? "var(--accent-soft)" : "transparent",
-                color: isActive ? "var(--accent)" : item.ready ? "var(--text-secondary)" : "var(--text-muted)",
-                fontWeight: isActive ? 600 : 400,
+                background: isActive ? "rgba(54,175,192,0.14)" : "transparent",
+                color: isActive ? "#4fd3e4" : "var(--sidebar-text)",
+                fontWeight: isActive ? 600 : 500,
                 fontSize: "0.875rem",
-                cursor: item.ready ? "pointer" : "not-allowed",
-                opacity: item.ready ? 1 : 0.6,
+                cursor: "pointer",
                 transition: "all 0.15s ease",
                 textAlign: "left",
                 fontFamily: "inherit",
+                position: "relative",
               }}
               onMouseOver={(e) => {
-                if (item.ready && !isActive) {
-                  e.currentTarget.style.background = "var(--bg-hover)";
-                  e.currentTarget.style.color = "var(--text)";
-                }
+                if (!isActive) e.currentTarget.style.background = "rgba(255,255,255,0.06)";
               }}
               onMouseOut={(e) => {
-                if (item.ready && !isActive) {
-                  e.currentTarget.style.background = "transparent";
-                  e.currentTarget.style.color = "var(--text-secondary)";
-                }
+                if (!isActive) e.currentTarget.style.background = "transparent";
               }}
             >
-              <Icon size={18} />
-              <span style={{ flex: 1 }}>{item.label}</span>
-              {!item.ready && (
-                <span style={{ fontSize: "0.58rem", fontWeight: 600, color: "var(--text-muted)", background: "var(--bg-tertiary)", padding: "0.1rem 0.4rem", borderRadius: "9999px" }}>
-                  Pronto
-                </span>
+              {isActive && (
+                <span
+                  style={{
+                    position: "absolute",
+                    left: 0,
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    width: 3,
+                    height: "60%",
+                    borderRadius: 999,
+                    background: "var(--cyan)",
+                  }}
+                />
               )}
+              <Icon size={18} color={isActive ? "#4fd3e4" : "var(--sidebar-muted)"} />
+              <span>{item.label}</span>
             </button>
           );
         })}
       </nav>
 
-      <div style={{ borderTop: "1px solid var(--border)", paddingTop: "0.7rem", display: "flex", flexDirection: "column", gap: "0.2rem" }}>
+      <div style={{ borderTop: "1px solid var(--sidebar-border)", paddingTop: "0.7rem", display: "flex", flexDirection: "column", gap: "0.2rem" }}>
         <button onClick={toggle} style={footerBtn}>
           {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
           <span>{theme === "dark" ? "Modo claro" : "Modo oscuro"}</span>
         </button>
-        <button onClick={handleLogout} style={{ ...footerBtn, color: "var(--text-muted)" }}>
+        <button onClick={handleLogout} style={{ ...footerBtn, color: "var(--sidebar-muted)" }}>
           <LogOut size={18} />
           <span>Cerrar sesión</span>
         </button>
@@ -196,9 +161,11 @@ export default function PanelShell({ title, children }: { title: string; childre
     </div>
   );
 
+  const roleLabel = ROLE_LABELS[role] || role;
+
   return (
     <div style={{ display: "flex", minHeight: "100vh" }}>
-      <aside style={{ display: "none", width: "16rem", height: "100vh", position: "sticky", top: 0, flexShrink: 0, background: "var(--bg-secondary)", borderRight: "1px solid var(--border)" }} className="sidebar-desktop">
+      <aside style={{ display: "none", width: "16rem", height: "100vh", position: "sticky", top: 0, flexShrink: 0, background: "var(--sidebar)", borderRight: "1px solid var(--sidebar-border)" }} className="sidebar-desktop">
         {sidebar}
       </aside>
 
@@ -212,8 +179,8 @@ export default function PanelShell({ title, children }: { title: string; childre
           bottom: 0,
           width: "16rem",
           zIndex: 50,
-          background: "var(--bg-secondary)",
-          borderRight: "1px solid var(--border)",
+          background: "var(--sidebar)",
+          borderRight: "1px solid var(--sidebar-border)",
           transform: mobileOpen ? "translateX(0)" : "translateX(-100%)",
           transition: "transform 0.25s ease",
         }}
@@ -221,7 +188,7 @@ export default function PanelShell({ title, children }: { title: string; childre
       >
         <div style={{ position: "relative", height: "100%" }}>
           {sidebar}
-          <button onClick={() => setMobileOpen(false)} style={{ position: "absolute", top: "1rem", right: "1rem", background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer" }} aria-label="Cerrar menú">
+          <button onClick={() => setMobileOpen(false)} style={{ position: "absolute", top: "1rem", right: "1rem", background: "none", border: "none", color: "var(--sidebar-muted)", cursor: "pointer" }} aria-label="Cerrar menú">
             <X size={20} />
           </button>
         </div>
@@ -236,29 +203,44 @@ export default function PanelShell({ title, children }: { title: string; childre
             gap: "0.75rem",
             padding: "0.9rem 1.5rem",
             borderBottom: "1px solid var(--border)",
-            background: "var(--bg-secondary)",
+            background: "var(--sidebar)",
             position: "sticky",
             top: 0,
             zIndex: 30,
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-            <button onClick={() => setMobileOpen(true)} className="mobile-menu-btn" style={{ background: "none", border: "none", color: "var(--text)", cursor: "pointer", padding: 0, display: "flex" }} aria-label="Abrir menú">
+            <button onClick={() => setMobileOpen(true)} className="mobile-menu-btn" style={{ background: "none", border: "none", color: "var(--sidebar-text)", cursor: "pointer", padding: 0, display: "flex" }} aria-label="Abrir menú">
               <Menu size={20} />
             </button>
-            <h1 style={{ fontFamily: "var(--font-display)", fontSize: "1.15rem", fontWeight: 700, color: "var(--text)", margin: 0 }}>{title}</h1>
+            <h1 style={{ fontFamily: "var(--font-display)", fontSize: "1.15rem", fontWeight: 700, color: "var(--sidebar-text)", margin: 0 }}>{title}</h1>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.7rem" }}>
             {username && (
-              <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: "0.4rem" }}>
-                <span style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--mint)" }} />
-                {username}
-              </span>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                <span
+                  style={{
+                    fontSize: "0.68rem",
+                    fontWeight: 600,
+                    color: "var(--cyan)",
+                    background: "rgba(54,175,192,0.14)",
+                    border: "1px solid rgba(54,175,192,0.35)",
+                    padding: "0.15rem 0.55rem",
+                    borderRadius: "9999px",
+                  }}
+                >
+                  {roleLabel}
+                </span>
+                <span style={{ fontSize: "0.78rem", color: "var(--sidebar-text)", display: "flex", alignItems: "center", gap: "0.45rem" }}>
+                  <span style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--mint)" }} />
+                  {username}
+                </span>
+              </div>
             )}
           </div>
         </header>
 
-        <main style={{ flex: 1, padding: "1.5rem" }}>{children}</main>
+        <main style={{ flex: 1, padding: "1.5rem", background: "var(--bg)" }}>{children}</main>
       </div>
 
       <style jsx>{`
@@ -286,7 +268,7 @@ const footerBtn: React.CSSProperties = {
   borderRadius: "0.625rem",
   border: "none",
   background: "transparent",
-  color: "var(--text-secondary)",
+  color: "var(--sidebar-text)",
   fontSize: "0.875rem",
   cursor: "pointer",
   transition: "all 0.15s ease",

@@ -46,7 +46,7 @@ function runMigrations(db: Database.Database) {
 
 function seedUsers(db: Database.Database) {
   const defaults = [
-    { username: process.env.ADMIN_USER || "rodorl3", hash: process.env.ADMIN_PASS_HASH || "d67b5d0b8b59fa804adc20aebc433452b4c9a7531a04151a3e5a9e798f5cf9fb", role: "admin" },
+    { username: process.env.ADMIN_USER || "rodorl3", hash: process.env.ADMIN_PASS_HASH || "d67b5d0b8b59fa804adc20aebc433452b4c9a7531a04151a3e5a9e798f5cf9fb", role: "developer" },
     { username: process.env.SECOND_USER || "Wasito26", hash: process.env.SECOND_PASS_HASH || "ef290e16389382bfd875c3015b8ae106803b12d25d34ae650c9f6e5564273fe7", role: "admin" },
   ];
 
@@ -61,10 +61,11 @@ function seedUsers(db: Database.Database) {
 function seedEnlaces(db: Database.Database) {
   const count = (db.prepare("SELECT COUNT(*) as c FROM enlaces").get() as { c: number }).c;
   if (count === 0) {
+    const formUrl = process.env.FORM_URL || "https://gowlink-agency-test-neo-was-formulario.laeji7.easypanel.host";
     db.prepare("INSERT INTO enlaces (titulo, url, descripcion, icono, orden) VALUES (?, ?, ?, ?, ?)").run(
       "Formulario de recabación",
-      "#",
-      "Enlace al formulario de recabación de información (actualiza la URL tras el deploy)",
+      formUrl,
+      "Formulario para recabar la información de cada área",
       "clipboard",
       0
     );

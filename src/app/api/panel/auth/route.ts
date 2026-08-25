@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { hashPassword, signToken, verifyToken } from "@/lib/panel/auth";
+import { hashPassword, signToken, verifyToken, type Role } from "@/lib/panel/auth";
 import { getUserByUsername } from "@/lib/panel/db";
 
 export async function POST(req: NextRequest) {
@@ -20,8 +20,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Credenciales inválidas" }, { status: 401 });
     }
 
-    const token = signToken(row.username, "admin");
-    return NextResponse.json({ success: true, token, username: row.username });
+    const token = signToken(row.username, row.role as Role);
+    return NextResponse.json({ success: true, token, username: row.username, role: row.role });
   } catch {
     return NextResponse.json({ error: "Error interno" }, { status: 500 });
   }
@@ -34,5 +34,5 @@ export async function GET(req: NextRequest) {
   if (!verified.valid) {
     return NextResponse.json({ valid: false }, { status: 401 });
   }
-  return NextResponse.json({ valid: true, username: verified.username });
+  return NextResponse.json({ valid: true, username: verified.username, role: verified.role });
 }

@@ -42,7 +42,7 @@ export default function LoginPage() {
         style={{
           width: "100%",
           maxWidth: "24rem",
-          background: "var(--bg-secondary)",
+          background: "var(--surface)",
           border: "1px solid var(--border)",
           borderRadius: "1rem",
           padding: "2rem",
@@ -143,7 +143,7 @@ const lbl: React.CSSProperties = { fontSize: "0.78rem", fontWeight: 600, color: 
 const input: React.CSSProperties = {
   width: "100%",
   padding: "0.65rem 0.8rem",
-  background: "var(--bg-tertiary)",
+  background: "var(--surface-2)",
   border: "1px solid var(--border)",
   borderRadius: "0.6rem",
   color: "var(--text)",
