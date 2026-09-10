@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { Lock, User, Loader2 } from "lucide-react";
 import { setToken } from "@/lib/panel/api";
 
@@ -50,25 +51,9 @@ export default function LoginPage() {
         }}
       >
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.6rem", marginBottom: "1.75rem" }}>
-          <div
-            style={{
-              width: "3.5rem",
-              height: "3.5rem",
-              borderRadius: "1rem",
-              background: "var(--primary)",
-              color: "var(--gold)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontWeight: 800,
-              fontFamily: "var(--font-display)",
-              fontSize: "1.6rem",
-            }}
-          >
-            W
-          </div>
+          <Image src="/logo.png" alt="Neo Was" width={190} height={143} style={{ objectFit: "contain" }} priority />
           <div style={{ textAlign: "center" }}>
-            <h1 style={{ fontFamily: "var(--font-display)", fontSize: "1.5rem", fontWeight: 700, color: "var(--text)", margin: 0 }}>Wasito</h1>
+            <h1 style={{ fontFamily: "var(--font-display)", fontSize: "1.4rem", fontWeight: 700, color: "var(--text)", margin: 0, letterSpacing: "0.02em" }}>Wasito</h1>
             <p style={{ fontSize: "0.82rem", color: "var(--text-muted)", margin: "0.25rem 0 0" }}>Sistema interno de Neo Was</p>
           </div>
         </div>

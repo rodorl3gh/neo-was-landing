@@ -1,12 +1,49 @@
-import { createHash, createHmac, timingSafeEqual } from "crypto";
+import { createHash, createHmac, timingSafeEqual, createCipheriv, createDecipheriv, randomBytes } from "crypto";
 
 const SALT = "wasito_salt_";
 const TOKEN_SECRET = process.env.AUTH_TOKEN_SECRET || "wasito-token-secret-2026";
 
-export type Role = "admin" | "developer";
+export type Role = "admin" | "developer" | "user";
 
 export function hashPassword(pass: string): string {
   return createHash("sha256").update(SALT + pass).digest("hex");
+}
+
+export function isSuperadmin(role: string | null | undefined): boolean {
+  return role === "developer";
+}
+
+// ------------------------------------------------------------------
+// Cifrado reversible de contraseñas (para poder mostrarlas en el panel)
+// AES-256-GCM con clave derivada de AUTH_TOKEN_SECRET.
+// ------------------------------------------------------------------
+function secretKey(): Buffer {
+  return createHash("sha256").update(`${TOKEN_SECRET}::password-store`).digest();
+}
+
+export function encryptSecret(plain: string): string {
+  if (!plain) return "";
+  const iv = randomBytes(12);
+  const cipher = createCipheriv("aes-256-gcm", secretKey(), iv);
+  const enc = Buffer.concat([cipher.update(plain, "utf8"), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return `${iv.toString("base64")}.${tag.toString("base64")}.${enc.toString("base64")}`;
+}
+
+export function decryptSecret(payload: string | null | undefined): string {
+  if (!payload) return "";
+  const parts = payload.split(".");
+  if (parts.length !== 3) return "";
+  try {
+    const iv = Buffer.from(parts[0], "base64");
+    const tag = Buffer.from(parts[1], "base64");
+    const data = Buffer.from(parts[2], "base64");
+    const decipher = createDecipheriv("aes-256-gcm", secretKey(), iv);
+    decipher.setAuthTag(tag);
+    return Buffer.concat([decipher.update(data), decipher.final()]).toString("utf8");
+  } catch {
+    return "";
+  }
 }
 
 function b64url(input: Buffer | string): string {

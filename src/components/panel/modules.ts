@@ -9,6 +9,8 @@ import {
   CalendarDays,
   MessageCircle,
   Layers,
+  UserCog,
+  Bell,
   type LucideIcon,
 } from "lucide-react";
 
@@ -17,6 +19,7 @@ export interface Module {
   label: string;
   desc: string;
   icon: LucideIcon;
+  superadminOnly?: boolean;
 }
 
 export const MODULES: Module[] = [
@@ -30,9 +33,12 @@ export const MODULES: Module[] = [
   { href: "/panel/contratos", label: "Contratos", desc: "Plantillas y contratos por cliente", icon: FileText },
   { href: "/panel/calendario", label: "Calendario", desc: "Metas y eventos del equipo", icon: CalendarDays },
   { href: "/panel/asistente", label: "Asistente", desc: "Trabaja por voz o mensaje", icon: MessageCircle },
+  { href: "/panel/usuarios", label: "Usuarios", desc: "Cuentas y contraseñas del equipo", icon: UserCog },
+  { href: "/panel/notificaciones", label: "Notificaciones", desc: "Registro de actividad del sistema", icon: Bell, superadminOnly: true },
 ];
 
 export const ROLE_LABELS: Record<string, string> = {
+  developer: "Superadministrador",
   admin: "Administrador",
-  developer: "Desarrollador",
+  user: "Colaborador",
 };

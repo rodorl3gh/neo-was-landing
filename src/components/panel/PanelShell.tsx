@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { useRouter, usePathname } from "next/navigation";
 import { Sun, Moon, LogOut, Menu, X } from "lucide-react";
 import { useTheme } from "./theme";
@@ -67,32 +68,30 @@ export default function PanelShell({ title, children }: { title: string; childre
       <div style={{ display: "flex", alignItems: "center", gap: "0.7rem", marginBottom: "1.4rem", padding: "0 0.25rem" }}>
         <div
           style={{
-            width: "2.5rem",
-            height: "2.5rem",
+            width: "2.6rem",
+            height: "2.6rem",
             borderRadius: "0.7rem",
-            background: "linear-gradient(135deg, #36afc0, #1be0b5)",
-            color: "#04121a",
+            background: "#050506",
+            border: "1px solid rgba(212,175,55,0.35)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            fontWeight: 800,
-            fontFamily: "var(--font-display)",
-            fontSize: "1.15rem",
             flexShrink: 0,
+            overflow: "hidden",
           }}
         >
-          W
+          <Image src="/logo-mark.png" alt="Neo Was" width={42} height={42} style={{ objectFit: "cover" }} priority />
         </div>
         <div style={{ display: "flex", flexDirection: "column" }}>
           <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "1.15rem", color: "var(--sidebar-text)", lineHeight: 1.1 }}>
             Wasito
           </span>
-          <span style={{ fontSize: "0.66rem", color: "var(--sidebar-muted)", letterSpacing: "0.08em", textTransform: "uppercase" }}>Neo Was</span>
+          <span style={{ fontSize: "0.66rem", color: "var(--gold)", letterSpacing: "0.08em", textTransform: "uppercase" }}>Neo Was</span>
         </div>
       </div>
 
       <nav style={{ flex: 1, display: "flex", flexDirection: "column", gap: "0.2rem", overflowY: "auto" }}>
-        {MODULES.map((item) => {
+        {MODULES.filter((m) => !m.superadminOnly || role === "developer").map((item) => {
           const Icon = item.icon;
           const isActive = item.href === "/panel" ? pathname === "/panel" : pathname.startsWith(item.href);
           return (
@@ -110,8 +109,8 @@ export default function PanelShell({ title, children }: { title: string; childre
                 padding: "0.62rem 0.75rem",
                 borderRadius: "0.625rem",
                 border: "none",
-                background: isActive ? "rgba(54,175,192,0.14)" : "transparent",
-                color: isActive ? "#4fd3e4" : "var(--sidebar-text)",
+                background: isActive ? "rgba(212,175,55,0.16)" : "transparent",
+                color: isActive ? "#e8c766" : "var(--sidebar-text)",
                 fontWeight: isActive ? 600 : 500,
                 fontSize: "0.875rem",
                 cursor: "pointer",
@@ -141,7 +140,7 @@ export default function PanelShell({ title, children }: { title: string; childre
                   }}
                 />
               )}
-              <Icon size={18} color={isActive ? "#4fd3e4" : "var(--sidebar-muted)"} />
+              <Icon size={18} color={isActive ? "#e8c766" : "var(--sidebar-muted)"} />
               <span>{item.label}</span>
             </button>
           );
@@ -224,9 +223,9 @@ export default function PanelShell({ title, children }: { title: string; childre
                   style={{
                     fontSize: "0.68rem",
                     fontWeight: 600,
-                    color: "var(--cyan)",
-                    background: "rgba(54,175,192,0.14)",
-                    border: "1px solid rgba(54,175,192,0.35)",
+                    color: "var(--gold)",
+                    background: "rgba(212,175,55,0.14)",
+                    border: "1px solid rgba(212,175,55,0.35)",
                     padding: "0.15rem 0.55rem",
                     borderRadius: "9999px",
                   }}

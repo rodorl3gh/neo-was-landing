@@ -921,6 +921,10 @@ function EquipoView({
   onEdit: (c: ColaboradorLite) => void;
   onDelete: (id: number) => void;
 }) {
+  const [selected, setSelected] = useState<number | null>(null);
+  const selectedColab = selected != null ? colaboradores.find((c) => c.id === selected) || null : null;
+  const selectedMetas = selected != null ? metas.filter((m) => m.colaborador_id === selected) : [];
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "0.8rem" }}>
       <div style={{ display: "flex", justifyContent: "flex-end" }}>
@@ -932,8 +936,31 @@ function EquipoView({
         {colaboradores.map((c) => {
           const count = metas.filter((m) => m.colaborador_id === c.id).length;
           const done = metas.filter((m) => m.colaborador_id === c.id && m.estado === "completada").length;
+          const isOpen = selected === c.id;
           return (
-            <div key={c.id} style={{ background: "var(--surface)", border: "1px solid var(--border)", borderLeft: `3px solid ${c.color}`, borderRadius: "0.75rem", padding: "0.9rem", display: "flex", alignItems: "center", gap: "0.7rem", opacity: c.activo ? 1 : 0.55 }}>
+            <div
+              key={c.id}
+              onClick={() => setSelected(isOpen ? null : c.id)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") setSelected(isOpen ? null : c.id);
+              }}
+              style={{
+                background: "var(--surface)",
+                border: "1px solid var(--border)",
+                borderLeft: `3px solid ${c.color}`,
+                borderRadius: "0.75rem",
+                padding: "0.9rem",
+                display: "flex",
+                alignItems: "center",
+                gap: "0.7rem",
+                opacity: c.activo ? 1 : 0.55,
+                cursor: "pointer",
+                boxShadow: isOpen ? `0 0 0 1px ${c.color}` : "none",
+                transition: "box-shadow 0.15s ease",
+              }}
+            >
               <ColaboradorAvatar colaborador={c} size={42} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
@@ -945,18 +972,66 @@ function EquipoView({
                   {done}/{count} metas completadas
                 </div>
               </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
-                <button onClick={() => onEdit(c)} style={iconBtn} title="Editar">
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem", alignItems: "center" }}>
+                <button onClick={(e) => { e.stopPropagation(); onEdit(c); }} style={iconBtn} title="Editar">
                   <Pencil size={14} />
                 </button>
-                <button onClick={() => onDelete(c.id)} style={{ ...iconBtn, color: "var(--danger)" }} title="Eliminar">
+                <button onClick={(e) => { e.stopPropagation(); onDelete(c.id); }} style={{ ...iconBtn, color: "var(--danger)" }} title="Eliminar">
                   <Trash2 size={14} />
                 </button>
+                <ChevronRight size={16} style={{ transform: isOpen ? "rotate(90deg)" : "none", transition: "transform 0.2s ease", color: "var(--text-muted)" }} />
               </div>
             </div>
           );
         })}
       </div>
+
+      {selectedColab && (
+        <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "0.875rem", padding: "1rem", display: "flex", flexDirection: "column", gap: "0.6rem" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+            <ColaboradorAvatar colaborador={selectedColab} size={34} />
+            <div>
+              <div style={{ fontWeight: 700, color: "var(--text)", fontFamily: "var(--font-display)" }}>Metas de {selectedColab.nombre}</div>
+              <div style={{ fontSize: "0.74rem", color: "var(--text-muted)" }}>
+                {selectedMetas.length} meta{selectedMetas.length !== 1 ? "s" : ""}
+              </div>
+            </div>
+            <button onClick={() => setSelected(null)} style={{ marginLeft: "auto", background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", display: "flex" }} title="Cerrar">
+              <X size={16} />
+            </button>
+          </div>
+          {selectedMetas.length === 0 ? (
+            <p style={{ fontSize: "0.82rem", color: "var(--text-muted)", margin: 0 }}>Este colaborador no tiene metas asignadas.</p>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
+              {selectedMetas.map((m) => (
+                <MiniMetaRow key={m.id} meta={m} />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MiniMetaRow({ meta }: { meta: Meta }) {
+  const tInfo = tipoInfo(meta.tipo);
+  const eInfo = estadoInfo(meta.estado);
+  const pInfo = prioridadInfo(meta.prioridad);
+  const done = meta.pasos.filter((p) => p.done).length;
+  const total = meta.pasos.length;
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.55rem 0.7rem", borderRadius: "0.55rem", background: "var(--surface-2)", borderLeft: `3px solid ${tInfo.color}`, flexWrap: "wrap" }}>
+      <span style={{ flex: 1, minWidth: "8rem", fontSize: "0.84rem", fontWeight: 600, color: "var(--text)", textDecoration: meta.estado === "completada" ? "line-through" : "none" }}>{meta.titulo}</span>
+      <span style={chip(tInfo.color)}>{tInfo.label}</span>
+      <span style={chip(eInfo.color)}>{eInfo.label}</span>
+      {meta.fecha_limite && <span style={{ fontSize: "0.7rem", color: vencimientoLabel(meta.fecha_limite)?.color || "var(--text-muted)" }}>{formatFechaCorta(meta.fecha_limite)}</span>}
+      {total > 0 && <span style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>{done}/{total}</span>}
+      <span style={{ fontSize: "0.68rem", color: pInfo.color, fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 2 }}>
+        <Flag size={10} />
+        {pInfo.label}
+      </span>
     </div>
   );
 }

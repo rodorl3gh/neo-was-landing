@@ -1,21 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyToken } from "@/lib/panel/auth";
-import { deleteMeta, getMetas, updateMeta, type MetaEstado, type MetaPrioridad } from "@/lib/panel/db";
+import { deleteMeta, getMetaById, getMetas, logActivity, updateMeta, type MetaEstado, type MetaPrioridad } from "@/lib/panel/db";
+import { authFromRequest } from "@/lib/panel/request";
 
-function requireAuth(req: NextRequest) {
-  const authHeader = req.headers.get("authorization");
-  const token = authHeader && authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
-  return verifyToken(token).valid;
-}
+const ESTADO_LABEL: Record<string, string> = { pendiente: "Pendiente", progreso: "En progreso", completada: "Completada" };
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  if (!requireAuth(req)) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  const me = authFromRequest(req);
+  if (!me.valid) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   const { id } = await params;
   const metaId = Number(id);
   if (isNaN(metaId)) return NextResponse.json({ error: "ID inválido" }, { status: 400 });
 
   try {
     const body = await req.json();
+    const before = getMetaById(metaId);
 
     const data: {
       titulo?: string;
@@ -37,6 +35,21 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (body.orden !== undefined) data.orden = Number(body.orden);
 
     updateMeta(metaId, data);
+
+    if (data.estado && before && before.estado !== data.estado) {
+      logActivity({
+        tipo: data.estado === "completada" ? "meta_completada" : "meta_estado",
+        actor: me.username || "",
+        mensaje: `${me.username} marcó la meta "${before.titulo}" como ${ESTADO_LABEL[data.estado] || data.estado}`,
+      });
+    } else if (Object.keys(data).length > 0 && !data.orden) {
+      logActivity({
+        tipo: "meta_editada",
+        actor: me.username || "",
+        mensaje: `${me.username} editó la meta "${data.titulo || before?.titulo || ""}"`,
+      });
+    }
+
     return NextResponse.json({ metas: getMetas() });
   } catch {
     return NextResponse.json({ error: "Error al actualizar la meta" }, { status: 500 });
@@ -44,8 +57,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  if (!requireAuth(req)) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  const me = authFromRequest(req);
+  if (!me.valid) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   const { id } = await params;
-  deleteMeta(Number(id));
+  const metaId = Number(id);
+  const before = getMetaById(metaId);
+  deleteMeta(metaId);
+  if (before) {
+    logActivity({ tipo: "meta_eliminada", actor: me.username || "", mensaje: `${me.username} eliminó la meta "${before.titulo}"` });
+  }
   return NextResponse.json({ metas: getMetas() });
 }

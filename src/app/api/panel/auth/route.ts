@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { hashPassword, signToken, verifyToken, type Role } from "@/lib/panel/auth";
-import { getUserByUsername } from "@/lib/panel/db";
+import { getUserByUsername, logActivity } from "@/lib/panel/db";
 
 export async function POST(req: NextRequest) {
   try {
@@ -19,6 +19,8 @@ export async function POST(req: NextRequest) {
     if (hashPassword(pass) !== row.password_hash) {
       return NextResponse.json({ error: "Credenciales inválidas" }, { status: 401 });
     }
+
+    logActivity({ tipo: "login", actor: row.username, mensaje: `${row.username} inició sesión` });
 
     const token = signToken(row.username, row.role as Role);
     return NextResponse.json({ success: true, token, username: row.username, role: row.role });

@@ -1,15 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyToken } from "@/lib/panel/auth";
-import { deleteEvento, getEventos, updateEvento } from "@/lib/panel/db";
-
-function requireAuth(req: NextRequest) {
-  const authHeader = req.headers.get("authorization");
-  const token = authHeader && authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
-  return verifyToken(token).valid;
-}
+import { deleteEvento, getEventos, logActivity, updateEvento } from "@/lib/panel/db";
+import { authFromRequest } from "@/lib/panel/request";
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  if (!requireAuth(req)) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  const me = authFromRequest(req);
+  if (!me.valid) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   const { id } = await params;
   const body = await req.json();
   const data: {
@@ -31,8 +26,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  if (!requireAuth(req)) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  const me = authFromRequest(req);
+  if (!me.valid) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   const { id } = await params;
   deleteEvento(Number(id));
+  logActivity({ tipo: "evento_eliminado", actor: me.username || "", mensaje: `${me.username} eliminó un evento del calendario` });
   return NextResponse.json({ eventos: getEventos() });
 }

@@ -1,15 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyToken } from "@/lib/panel/auth";
-import { createEvento, getEventos } from "@/lib/panel/db";
-
-function requireAuth(req: NextRequest) {
-  const authHeader = req.headers.get("authorization");
-  const token = authHeader && authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
-  return verifyToken(token).valid;
-}
+import { createEvento, getEventos, logActivity } from "@/lib/panel/db";
+import { authFromRequest } from "@/lib/panel/request";
 
 export async function GET(req: NextRequest) {
-  if (!requireAuth(req)) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  const me = authFromRequest(req);
+  if (!me.valid) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   const sp = req.nextUrl.searchParams;
   return NextResponse.json({
     eventos: getEventos({ desde: sp.get("desde") || undefined, hasta: sp.get("hasta") || undefined }),
@@ -17,7 +12,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  if (!requireAuth(req)) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  const me = authFromRequest(req);
+  if (!me.valid) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   const body = await req.json();
   const titulo = String(body.titulo || "").trim();
   const fecha = String(body.fecha || "").trim();
@@ -31,5 +27,6 @@ export async function POST(req: NextRequest) {
     colaborador_id: body.colaborador_id != null && body.colaborador_id !== "" ? Number(body.colaborador_id) : null,
     color: body.color ? String(body.color) : "",
   });
+  logActivity({ tipo: "evento_creado", actor: me.username || "", mensaje: `${me.username} creó el evento "${titulo}" (${fecha})` });
   return NextResponse.json({ id, eventos: getEventos() });
 }

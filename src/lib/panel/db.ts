@@ -1,6 +1,7 @@
 import Database from "better-sqlite3";
 import path from "path";
 import fs from "fs";
+import { hashPassword, encryptSecret } from "./auth";
 
 const DATA_DIR = path.resolve(process.cwd(), "data");
 const DB_PATH = path.join(DATA_DIR, "wasito.db");
@@ -18,9 +19,9 @@ export function getDb(): Database.Database {
   _db.pragma("busy_timeout = 5000");
 
   runMigrations(_db);
+  seedColaboradores(_db);
   seedUsers(_db);
   seedEnlaces(_db);
-  seedColaboradores(_db);
   return _db;
 }
 
@@ -92,19 +93,76 @@ function runMigrations(db: Database.Database) {
       created_at INTEGER NOT NULL DEFAULT (unixepoch())
     );
     CREATE INDEX IF NOT EXISTS idx_eventos_fecha ON eventos(fecha);
+
+    CREATE TABLE IF NOT EXISTS password_changes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      username TEXT NOT NULL DEFAULT '',
+      changed_by TEXT NOT NULL DEFAULT '',
+      year_month TEXT NOT NULL,
+      created_at INTEGER NOT NULL DEFAULT (unixepoch())
+    );
+    CREATE INDEX IF NOT EXISTS idx_pwd_changes_user ON password_changes(user_id, year_month);
+
+    CREATE TABLE IF NOT EXISTS activity_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tipo TEXT NOT NULL,
+      actor TEXT NOT NULL DEFAULT '',
+      mensaje TEXT NOT NULL DEFAULT '',
+      detalle TEXT NOT NULL DEFAULT '',
+      created_at INTEGER NOT NULL DEFAULT (unixepoch())
+    );
+    CREATE INDEX IF NOT EXISTS idx_activity_created ON activity_log(created_at);
   `);
+
+  // Migracion: columnas de usuarios (contraseña cifrada + colaborador vinculado)
+  try { db.exec("ALTER TABLE users ADD COLUMN password_enc TEXT NOT NULL DEFAULT ''"); } catch { /* ya existe */ }
+  try { db.exec("ALTER TABLE users ADD COLUMN colaborador_id INTEGER"); } catch { /* ya existe */ }
+}
+
+const SEED_USERS: { username: string; password: string; colaborador: string }[] = [
+  { username: "maribelnw", password: "mariNW2026*", colaborador: "Maribel" },
+  { username: "saidnw", password: "saidNW2026*", colaborador: "Said" },
+  { username: "wendynw", password: "wenNW2026*", colaborador: "Wendy" },
+  { username: "marilunw", password: "marluNW2026*", colaborador: "Marilu" },
+  { username: "ivonnenw", password: "ivonNW2026*", colaborador: "Ivonne" },
+];
+
+function colaboradorIdByName(db: Database.Database, nombre: string): number | null {
+  const row = db.prepare("SELECT id FROM colaboradores WHERE nombre = ?").get(nombre) as { id: number } | undefined;
+  return row ? row.id : null;
 }
 
 function seedUsers(db: Database.Database) {
-  const defaults = [
-    { username: process.env.ADMIN_USER || "rodorl3", hash: process.env.ADMIN_PASS_HASH || "d67b5d0b8b59fa804adc20aebc433452b4c9a7531a04151a3e5a9e798f5cf9fb", role: "developer" },
-    { username: process.env.SECOND_USER || "Wasito26", hash: process.env.SECOND_PASS_HASH || "ef290e16389382bfd875c3015b8ae106803b12d25d34ae650c9f6e5564273fe7", role: "admin" },
-  ];
+  // El usuario administrador anterior se elimina (solo queda el superadministrador).
+  db.prepare("DELETE FROM users WHERE username = ?").run("Wasito26");
 
-  for (const u of defaults) {
+  // Superadministrador (rodorl3)
+  const adminUser = process.env.ADMIN_USER || "rodorl3";
+  const adminHash = process.env.ADMIN_PASS_HASH;
+  const existingAdmin = db.prepare("SELECT id FROM users WHERE username = ?").get(adminUser) as { id: number } | undefined;
+  const rodoId = colaboradorIdByName(db, "Rodo");
+  if (!existingAdmin) {
+    const hash = adminHash && adminHash.length > 0 ? adminHash : hashPassword("wasito2026*");
+    db.prepare("INSERT INTO users (username, password_hash, role, colaborador_id) VALUES (?, ?, 'developer', ?)").run(adminUser, hash, rodoId);
+  } else {
+    if (adminHash && adminHash.length > 0) {
+      db.prepare("UPDATE users SET password_hash = ? WHERE username = ?").run(adminHash, adminUser);
+    }
+    db.prepare("UPDATE users SET role = 'developer' WHERE id = ?").run(existingAdmin.id);
+    if (rodoId) db.prepare("UPDATE users SET colaborador_id = ? WHERE id = ? AND colaborador_id IS NULL").run(rodoId, existingAdmin.id);
+  }
+
+  // Colaboradores con acceso al panel
+  for (const u of SEED_USERS) {
     const existing = db.prepare("SELECT id FROM users WHERE username = ?").get(u.username) as { id: number } | undefined;
+    const colabId = colaboradorIdByName(db, u.colaborador);
     if (!existing) {
-      db.prepare("INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)").run(u.username, u.hash, u.role);
+      db.prepare(
+        "INSERT INTO users (username, password_hash, password_enc, role, colaborador_id) VALUES (?, ?, ?, 'user', ?)"
+      ).run(u.username, hashPassword(u.password), encryptSecret(u.password), colabId);
+    } else if (colabId) {
+      db.prepare("UPDATE users SET colaborador_id = ? WHERE id = ? AND colaborador_id IS NULL").run(colabId, existing.id);
     }
   }
 }
@@ -127,7 +185,9 @@ export interface UserRow {
   id: number;
   username: string;
   password_hash: string;
+  password_enc: string;
   role: string;
+  colaborador_id: number | null;
 }
 
 export interface Enlace {
@@ -495,4 +555,120 @@ export function updateEvento(
 
 export function deleteEvento(id: number) {
   getDb().prepare("DELETE FROM eventos WHERE id = ?").run(id);
+}
+
+// ------------------------------------------------------------------
+// Usuarios del panel (cuentas + contraseñas)
+// ------------------------------------------------------------------
+export const PASSWORD_CHANGE_LIMIT = 3;
+
+export interface UserWithColaborador {
+  id: number;
+  username: string;
+  role: string;
+  colaborador_id: number | null;
+  colaborador_nombre: string | null;
+  has_password: number;
+  password_enc: string;
+}
+
+export function getUsers(): UserWithColaborador[] {
+  return getDb()
+    .prepare(
+      `SELECT u.id, u.username, u.role, u.colaborador_id,
+              c.nombre AS colaborador_nombre,
+              CASE WHEN u.password_enc != '' THEN 1 ELSE 0 END AS has_password,
+              u.password_enc
+       FROM users u LEFT JOIN colaboradores c ON c.id = u.colaborador_id
+       ORDER BY CASE u.role WHEN 'developer' THEN 0 WHEN 'admin' THEN 1 ELSE 2 END, u.username`
+    )
+    .all() as UserWithColaborador[];
+}
+
+export function getUserById(id: number): UserRow | undefined {
+  return getDb().prepare("SELECT * FROM users WHERE id = ?").get(id) as UserRow | undefined;
+}
+
+export function createUser(data: {
+  username: string;
+  password: string;
+  role?: string;
+  colaborador_id?: number | null;
+}): number {
+  return getDb()
+    .prepare("INSERT INTO users (username, password_hash, password_enc, role, colaborador_id) VALUES (?, ?, ?, ?, ?)")
+    .run(
+      data.username,
+      hashPassword(data.password),
+      encryptSecret(data.password),
+      data.role || "user",
+      data.colaborador_id ?? null
+    ).lastInsertRowid as number;
+}
+
+export function updateUser(
+  id: number,
+  data: { username?: string; password?: string; role?: string; colaborador_id?: number | null }
+) {
+  const db = getDb();
+  const fields: string[] = [];
+  const values: unknown[] = [];
+  if (data.username !== undefined) { fields.push("username = ?"); values.push(data.username); }
+  if (data.password !== undefined && data.password !== "") {
+    fields.push("password_hash = ?"); values.push(hashPassword(data.password));
+    fields.push("password_enc = ?"); values.push(encryptSecret(data.password));
+  }
+  if (data.role !== undefined) { fields.push("role = ?"); values.push(data.role); }
+  if (data.colaborador_id !== undefined) { fields.push("colaborador_id = ?"); values.push(data.colaborador_id); }
+  if (fields.length === 0) return;
+  values.push(id);
+  db.prepare(`UPDATE users SET ${fields.join(", ")} WHERE id = ?`).run(...values);
+}
+
+export function deleteUser(id: number) {
+  getDb().prepare("DELETE FROM users WHERE id = ?").run(id);
+}
+
+export function getCurrentYearMonth(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+export function countPasswordChangesThisMonth(userId: number): number {
+  const row = getDb()
+    .prepare("SELECT COUNT(*) AS c FROM password_changes WHERE user_id = ? AND year_month = ?")
+    .get(userId, getCurrentYearMonth()) as { c: number };
+  return row.c;
+}
+
+export function addPasswordChange(userId: number, username: string, changedBy: string) {
+  getDb()
+    .prepare("INSERT INTO password_changes (user_id, username, changed_by, year_month) VALUES (?, ?, ?, ?)")
+    .run(userId, username, changedBy, getCurrentYearMonth());
+}
+
+// ------------------------------------------------------------------
+// Log de actividad (Notificaciones)
+// ------------------------------------------------------------------
+export interface ActivityRow {
+  id: number;
+  tipo: string;
+  actor: string;
+  mensaje: string;
+  detalle: string;
+  created_at: number;
+}
+
+export function logActivity(data: { tipo: string; actor?: string; mensaje: string; detalle?: string }) {
+  try {
+    getDb()
+      .prepare("INSERT INTO activity_log (tipo, actor, mensaje, detalle) VALUES (?, ?, ?, ?)")
+      .run(data.tipo, data.actor || "", data.mensaje, data.detalle || "");
+  } catch {
+    /* el log nunca debe romper la operación */
+  }
+}
+
+export function getActivityLog(limit = 200): ActivityRow[] {
+  return getDb().prepare("SELECT * FROM activity_log ORDER BY id DESC LIMIT ?").all(limit) as ActivityRow[];
 }
