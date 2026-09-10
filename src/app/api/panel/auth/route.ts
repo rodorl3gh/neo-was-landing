@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { hashPassword, signToken, verifyToken, type Role } from "@/lib/panel/auth";
-import { getUserByUsername, logActivity } from "@/lib/panel/db";
+import { getUserByUsername, getColaboradorById, logActivity } from "@/lib/panel/db";
 
 export async function POST(req: NextRequest) {
   try {
@@ -36,5 +36,13 @@ export async function GET(req: NextRequest) {
   if (!verified.valid) {
     return NextResponse.json({ valid: false }, { status: 401 });
   }
-  return NextResponse.json({ valid: true, username: verified.username, role: verified.role });
+  const row = verified.username ? getUserByUsername(verified.username) : undefined;
+  const colab = row?.colaborador_id ? getColaboradorById(row.colaborador_id) : undefined;
+  return NextResponse.json({
+    valid: true,
+    username: verified.username,
+    role: verified.role,
+    color: colab?.color || null,
+    icono: colab?.icono || null,
+  });
 }

@@ -1,13 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
+import { signToken, type Role } from "@/lib/panel/auth";
 import { authFromRequest } from "@/lib/panel/request";
 import {
   addPasswordChange,
   countPasswordChangesThisMonth,
   deleteUser,
+  getColaboradorById,
   getUserById,
   getUsers,
   logActivity,
   PASSWORD_CHANGE_LIMIT,
+  updateColaborador,
   updateUser,
 } from "@/lib/panel/db";
 
@@ -36,10 +39,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         : null
       : undefined;
 
+  // Perfil (logo/color): el propio usuario o el superadministrador
+  const newIcono = typeof body.icono === "string" ? body.icono : undefined;
+  const newColor = typeof body.color === "string" ? body.color : undefined;
+
   const data: { username?: string; password?: string; role?: string; colaborador_id?: number | null } = {};
 
-  // Cambio de nombre de usuario: solo superadministrador
-  if (me.superadmin && newUsername && newUsername !== target.username) {
+  // Cambio de nombre de usuario: el propio usuario o el superadministrador
+  if ((me.superadmin || isSelf) && newUsername && newUsername !== target.username) {
     const dup = getUsers().some((u) => u.id !== userId && u.username.toLowerCase() === newUsername.toLowerCase());
     if (dup) return NextResponse.json({ error: "Ese usuario ya existe" }, { status: 409 });
     data.username = newUsername;
@@ -62,11 +69,23 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (newRole) data.role = newRole;
   if (newColaborador !== undefined) data.colaborador_id = newColaborador;
 
-  if (Object.keys(data).length === 0) {
+  if (Object.keys(data).length === 0 && newIcono === undefined && newColor === undefined) {
     return NextResponse.json({ ok: true, sinCambios: true });
   }
 
-  updateUser(userId, data);
+  if (Object.keys(data).length > 0) updateUser(userId, data);
+
+  // Actualiza logo/color del colaborador vinculado
+  const colabId = data.colaborador_id !== undefined ? data.colaborador_id : target.colaborador_id;
+  if (colabId && (newIcono !== undefined || newColor !== undefined)) {
+    const before = getColaboradorById(colabId);
+    updateColaborador(colabId, { icono: newIcono, color: newColor });
+    logActivity({
+      tipo: "perfil_actualizado",
+      actor: me.username || "",
+      mensaje: `${me.username} actualizó el perfil de ${before?.nombre || target.username}`,
+    });
+  }
 
   const finalUsername = data.username || target.username;
   if (data.password) {
@@ -92,7 +111,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     logActivity({ tipo: "usuario_colaborador", actor: me.username || "", mensaje: `${me.username} actualizó el colaborador de ${finalUsername}` });
   }
 
-  return NextResponse.json({ ok: true });
+  // Si el usuario renombró su propia cuenta, emitir un token nuevo.
+  let token: string | undefined;
+  if (isSelf && data.username) {
+    token = signToken(data.username, (data.role || target.role) as Role);
+  }
+
+  return NextResponse.json({ ok: true, token });
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

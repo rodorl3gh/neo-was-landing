@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Plus, Trash2, Pencil, X, Loader2, Eye, EyeOff, KeyRound, ShieldCheck, User, Lock } from "lucide-react";
 import PanelShell from "@/components/panel/PanelShell";
-import { apiGet, apiSend } from "@/lib/panel/api";
+import { apiGet, apiSend, setToken } from "@/lib/panel/api";
 import { ColaboradorAvatar, type ColaboradorLite } from "@/components/panel/ColaboradorBadge";
+import { COLABORADOR_COLORS, COLABORADOR_ICONS, ICON_KEYS } from "@/components/panel/colaboradorIcons";
 import { ROLE_LABELS } from "@/components/panel/modules";
 
 interface UsuarioItem {
@@ -13,11 +14,14 @@ interface UsuarioItem {
   role: string;
   colaborador_id: number | null;
   colaborador_nombre: string | null;
+  colaborador_icono: string | null;
+  colaborador_color: string | null;
   has_password: number;
   password: string | null;
   can_see_password: boolean;
   can_edit: boolean;
   can_edit_username: boolean;
+  can_edit_profile: boolean;
   changes_this_month: number;
   limit: number | null;
 }
@@ -44,6 +48,8 @@ export default function UsuariosPage() {
   const [fShowPass, setFShowPass] = useState(false);
   const [fRole, setFRole] = useState("user");
   const [fColaborador, setFColaborador] = useState("");
+  const [fIcono, setFIcono] = useState("user");
+  const [fColor, setFColor] = useState(COLABORADOR_COLORS[5]);
 
   const fetchData = useCallback(async () => {
     try {
@@ -79,6 +85,8 @@ export default function UsuariosPage() {
     setFShowPass(false);
     setFRole("user");
     setFColaborador("");
+    setFIcono("user");
+    setFColor(COLABORADOR_COLORS[5]);
     setError("");
     setShowModal(false);
   }
@@ -95,6 +103,8 @@ export default function UsuariosPage() {
     setFShowPass(false);
     setFRole(u.role);
     setFColaborador(u.colaborador_id != null ? String(u.colaborador_id) : "");
+    setFIcono(u.colaborador_icono || "user");
+    setFColor(u.colaborador_color || COLABORADOR_COLORS[5]);
     setError("");
     setShowModal(true);
   }
@@ -112,13 +122,20 @@ export default function UsuariosPage() {
           body.role = fRole;
           body.colaborador_id = fColaborador ? Number(fColaborador) : null;
         }
-        await apiSend(`/api/panel/usuarios/${editing.id}`, "PATCH", body);
+        if (editing.can_edit_profile) {
+          body.icono = fIcono;
+          body.color = fColor;
+        }
+        const res = await apiSend<{ token?: string }>(`/api/panel/usuarios/${editing.id}`, "PATCH", body);
+        if (res?.token) setToken(res.token);
       } else {
         await apiSend("/api/panel/usuarios", "POST", {
           username: fUsername.trim(),
           password: fPassword,
           role: fRole,
           colaborador_id: fColaborador ? Number(fColaborador) : null,
+          icono: fIcono,
+          color: fColor,
         });
       }
       resetForm();
@@ -170,6 +187,8 @@ export default function UsuariosPage() {
               const isSelf = me?.username === u.username;
               const show = revealed[u.id];
               const limitReached = u.limit != null && u.changes_this_month >= u.limit;
+              const isSuper = u.role === "developer";
+              const superColor = u.colaborador_color || "#d4af37";
               return (
                 <div key={u.id} style={{ display: "flex", alignItems: "center", gap: "0.8rem", padding: "0.9rem 1rem", background: "var(--surface)", border: "1px solid var(--border)", borderLeft: `3px solid ${u.role === "developer" ? "var(--gold)" : "var(--border)"}`, borderRadius: "0.875rem", flexWrap: "wrap" }}>
                   {colab ? <ColaboradorAvatar colaborador={colab} size={40} /> : (
@@ -182,8 +201,8 @@ export default function UsuariosPage() {
                     <div style={{ display: "flex", alignItems: "center", gap: "0.45rem", flexWrap: "wrap" }}>
                       <span style={{ fontSize: "0.95rem", fontWeight: 700, color: "var(--text)" }}>{u.username}</span>
                       {isSelf && <span style={{ fontSize: "0.62rem", fontWeight: 700, color: "var(--accent-fg)", background: "var(--accent)", padding: "0.05rem 0.45rem", borderRadius: "9999px" }}>Tú</span>}
-                      <span style={{ display: "inline-flex", alignItems: "center", gap: "0.25rem", fontSize: "0.65rem", fontWeight: 600, color: u.role === "developer" ? "var(--gold)" : "var(--text-secondary)", background: u.role === "developer" ? "var(--gold-soft)" : "var(--surface-2)", padding: "0.1rem 0.5rem", borderRadius: "9999px" }}>
-                        {u.role === "developer" && <ShieldCheck size={11} />}
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: "0.25rem", fontSize: "0.65rem", fontWeight: 600, color: isSuper ? superColor : "var(--gold)", background: isSuper ? `${superColor}1f` : "var(--gold-soft)", border: isSuper ? `1px solid ${superColor}55` : "1px solid transparent", padding: "0.1rem 0.5rem", borderRadius: "9999px" }}>
+                        {isSuper && <ShieldCheck size={11} />}
                         {ROLE_LABELS[u.role] || u.role}
                       </span>
                     </div>
@@ -264,6 +283,61 @@ export default function UsuariosPage() {
                 </button>
               </div>
             </Field>
+
+            {(editing ? editing.can_edit_profile : Boolean(me?.superadmin)) && (
+              <>
+                <Field label="Logo (icono del perfil)">
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(1.9rem, 1fr))", gap: "0.3rem", maxHeight: "7.5rem", overflowY: "auto", padding: "0.15rem" }}>
+                    {ICON_KEYS.map((k) => {
+                      const Icon = COLABORADOR_ICONS[k];
+                      const active = fIcono === k;
+                      return (
+                        <button
+                          key={k}
+                          type="button"
+                          onClick={() => setFIcono(k)}
+                          title={k}
+                          style={{
+                            aspectRatio: "1",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            borderRadius: "0.45rem",
+                            border: active ? `1px solid ${fColor}` : "1px solid var(--border)",
+                            background: active ? `${fColor}22` : "var(--surface-2)",
+                            color: active ? fColor : "var(--text-secondary)",
+                            cursor: "pointer",
+                          }}
+                        >
+                          <Icon size={16} />
+                        </button>
+                      );
+                    })}
+                  </div>
+                </Field>
+                <Field label="Color">
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem", alignItems: "center" }}>
+                    {COLABORADOR_COLORS.map((col) => (
+                      <button
+                        key={col}
+                        type="button"
+                        onClick={() => setFColor(col)}
+                        style={{
+                          width: "1.5rem",
+                          height: "1.5rem",
+                          borderRadius: "50%",
+                          background: col,
+                          border: fColor === col ? "2px solid var(--text)" : "2px solid transparent",
+                          cursor: "pointer",
+                        }}
+                        aria-label={`Color ${col}`}
+                      />
+                    ))}
+                    <input type="color" value={fColor} onChange={(e) => setFColor(e.target.value)} style={{ width: "1.9rem", height: "1.7rem", border: "none", background: "none", cursor: "pointer" }} title="Color personalizado" />
+                  </div>
+                </Field>
+              </>
+            )}
 
             {me?.superadmin && (
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.6rem" }}>

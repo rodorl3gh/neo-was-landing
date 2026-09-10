@@ -568,6 +568,8 @@ export interface UserWithColaborador {
   role: string;
   colaborador_id: number | null;
   colaborador_nombre: string | null;
+  colaborador_icono: string | null;
+  colaborador_color: string | null;
   has_password: number;
   password_enc: string;
 }
@@ -577,6 +579,8 @@ export function getUsers(): UserWithColaborador[] {
     .prepare(
       `SELECT u.id, u.username, u.role, u.colaborador_id,
               c.nombre AS colaborador_nombre,
+              c.icono AS colaborador_icono,
+              c.color AS colaborador_color,
               CASE WHEN u.password_enc != '' THEN 1 ELSE 0 END AS has_password,
               u.password_enc
        FROM users u LEFT JOIN colaboradores c ON c.id = u.colaborador_id
