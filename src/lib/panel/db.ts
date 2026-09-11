@@ -673,6 +673,19 @@ export function logActivity(data: { tipo: string; actor?: string; mensaje: strin
   }
 }
 
+export const ACTIVITY_RETENTION_DAYS = 15;
+
+export function purgeOldActivity(days = ACTIVITY_RETENTION_DAYS) {
+  try {
+    getDb()
+      .prepare("DELETE FROM activity_log WHERE created_at < unixepoch() - ?")
+      .run(days * 86400);
+  } catch {
+    /* la limpieza nunca debe romper la lectura */
+  }
+}
+
 export function getActivityLog(limit = 200): ActivityRow[] {
+  purgeOldActivity();
   return getDb().prepare("SELECT * FROM activity_log ORDER BY id DESC LIMIT ?").all(limit) as ActivityRow[];
 }

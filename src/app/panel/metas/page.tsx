@@ -17,6 +17,7 @@ import {
   CalendarDays,
   ListChecks,
   ChevronRight,
+  ChevronDown,
 } from "lucide-react";
 import PanelShell from "@/components/panel/PanelShell";
 import { apiGet, apiSend } from "@/lib/panel/api";
@@ -432,6 +433,7 @@ export default function MetasPage() {
                         key={m.id}
                         meta={m}
                         colab={m.colaborador_id != null ? colabById.get(m.colaborador_id) || null : null}
+                        collapsible
                         onEdit={() => openEditMeta(m)}
                         onDelete={() => deleteMeta(m.id)}
                         onEstado={(e) => setEstado(m, e)}
@@ -654,6 +656,7 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
 function MetaCard({
   meta,
   colab,
+  collapsible = false,
   onEdit,
   onDelete,
   onEstado,
@@ -663,6 +666,7 @@ function MetaCard({
 }: {
   meta: Meta;
   colab: ColaboradorLite | null;
+  collapsible?: boolean;
   onEdit: () => void;
   onDelete: () => void;
   onEstado: (e: EstadoMeta) => void;
@@ -672,6 +676,7 @@ function MetaCard({
 }) {
   const [newPaso, setNewPaso] = useState("");
   const [showPasoInput, setShowPasoInput] = useState(false);
+  const [expanded, setExpanded] = useState(!collapsible);
   const tInfo = tipoInfo(meta.tipo);
   const pInfo = prioridadInfo(meta.prioridad);
   const eInfo = estadoInfo(meta.estado);
@@ -679,6 +684,52 @@ function MetaCard({
   const doneCount = meta.pasos.filter((p) => p.done).length;
   const pct = meta.pasos.length > 0 ? Math.round((doneCount / meta.pasos.length) * 100) : 0;
   const isDone = meta.estado === "completada";
+
+  if (collapsible && !expanded) {
+    return (
+      <div
+        onClick={() => setExpanded(true)}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            setExpanded(true);
+          }
+        }}
+        title="Clic para ver el detalle"
+        style={{
+          background: "var(--surface)",
+          border: "1px solid var(--border)",
+          borderLeft: `3px solid ${colab?.color || tInfo.color}`,
+          borderRadius: "0.6rem",
+          padding: "0.5rem 0.65rem",
+          display: "flex",
+          alignItems: "center",
+          gap: "0.45rem",
+          cursor: "pointer",
+          opacity: isDone ? 0.65 : 1,
+        }}
+      >
+        <ChevronRight size={15} style={{ flexShrink: 0, color: "var(--text-muted)" }} />
+        <span
+          style={{
+            flex: 1,
+            minWidth: 0,
+            fontSize: "0.85rem",
+            fontWeight: 600,
+            color: "var(--text)",
+            textDecoration: isDone ? "line-through" : "none",
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+          }}
+        >
+          {meta.titulo}
+        </span>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -695,6 +746,11 @@ function MetaCard({
       }}
     >
       <div style={{ display: "flex", alignItems: "flex-start", gap: "0.5rem" }}>
+        {collapsible && (
+          <button onClick={() => setExpanded(false)} style={iconBtn} title="Contraer">
+            <ChevronDown size={15} />
+          </button>
+        )}
         <div style={{ flex: 1, minWidth: 0 }}>
           <h3 style={{ fontSize: "0.95rem", color: "var(--text)", margin: 0, textDecoration: isDone ? "line-through" : "none", wordBreak: "break-word" }}>{meta.titulo}</h3>
           {meta.descripcion && <p style={{ fontSize: "0.76rem", color: "var(--text-muted)", margin: "0.2rem 0 0", whiteSpace: "pre-wrap" }}>{meta.descripcion}</p>}
@@ -891,6 +947,7 @@ function KanbanView({
                 <MetaCard
                   meta={m}
                   colab={m.colaborador_id != null ? colabById.get(m.colaborador_id) || null : null}
+                  collapsible
                   onEdit={() => onEdit(m)}
                   onDelete={() => onDelete(m.id)}
                   onEstado={(e) => onEstado(m, e)}
