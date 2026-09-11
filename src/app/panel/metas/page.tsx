@@ -49,6 +49,7 @@ interface Meta {
   titulo: string;
   descripcion: string;
   colaborador_id: number | null;
+  colaboradores: number[];
   tipo: string;
   prioridad: string;
   fecha_limite: string;
@@ -60,6 +61,11 @@ interface Meta {
 }
 
 type ViewMode = "colaborador" | "kanban" | "equipo";
+
+function metaColabIds(m: Meta): number[] {
+  if (m.colaboradores && m.colaboradores.length > 0) return m.colaboradores;
+  return m.colaborador_id != null ? [m.colaborador_id] : [];
+}
 
 export default function MetasPage() {
   const [metas, setMetas] = useState<Meta[]>([]);
@@ -78,7 +84,7 @@ export default function MetasPage() {
   const [error, setError] = useState("");
   const [mTitulo, setMTitulo] = useState("");
   const [mDesc, setMDesc] = useState("");
-  const [mColaborador, setMColaborador] = useState<string>("");
+  const [mColaboradores, setMColaboradores] = useState<number[]>([]);
   const [mTipo, setMTipo] = useState("trabajo");
   const [mPrioridad, setMPrioridad] = useState("media");
   const [mFecha, setMFecha] = useState("");
@@ -123,7 +129,8 @@ export default function MetasPage() {
   const filtered = useMemo(() => {
     return metas.filter((m) => {
       if (filterColaborador !== "all") {
-        if (filterColaborador === "none" ? m.colaborador_id != null : String(m.colaborador_id) !== filterColaborador) return false;
+        const ids = metaColabIds(m);
+        if (filterColaborador === "none" ? ids.length > 0 : !ids.includes(Number(filterColaborador))) return false;
       }
       if (filterTipo !== "all" && m.tipo !== filterTipo) return false;
       if (filterPrioridad !== "all" && m.prioridad !== filterPrioridad) return false;
@@ -142,9 +149,12 @@ export default function MetasPage() {
   const grouped = useMemo(() => {
     const groups = new Map<number | "none", Meta[]>();
     for (const m of filtered) {
-      const key = m.colaborador_id ?? "none";
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key)!.push(m);
+      const ids = metaColabIds(m);
+      const keys: (number | "none")[] = ids.length > 0 ? ids : ["none"];
+      for (const key of keys) {
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key)!.push(m);
+      }
     }
     const sortMetas = (arr: Meta[]) =>
       [...arr].sort((a, b) => {
@@ -165,7 +175,7 @@ export default function MetasPage() {
     setEditingMeta(null);
     setMTitulo("");
     setMDesc("");
-    setMColaborador("");
+    setMColaboradores([]);
     setMTipo("trabajo");
     setMPrioridad("media");
     setMFecha("");
@@ -177,7 +187,7 @@ export default function MetasPage() {
 
   function openCreateMeta() {
     resetMetaForm();
-    if (filterColaborador !== "all" && filterColaborador !== "none") setMColaborador(filterColaborador);
+    if (filterColaborador !== "all" && filterColaborador !== "none") setMColaboradores([Number(filterColaborador)]);
     setShowMetaModal(true);
   }
 
@@ -185,7 +195,7 @@ export default function MetasPage() {
     setEditingMeta(m);
     setMTitulo(m.titulo);
     setMDesc(m.descripcion);
-    setMColaborador(m.colaborador_id != null ? String(m.colaborador_id) : "");
+    setMColaboradores(metaColabIds(m));
     setMTipo(m.tipo);
     setMPrioridad(m.prioridad);
     setMFecha(m.fecha_limite);
@@ -193,6 +203,10 @@ export default function MetasPage() {
     setMPasos("");
     setError("");
     setShowMetaModal(true);
+  }
+
+  function toggleMColaborador(id: number) {
+    setMColaboradores((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   }
 
   async function saveMeta(ev: React.FormEvent) {
@@ -207,7 +221,7 @@ export default function MetasPage() {
       const body: Record<string, unknown> = {
         titulo: mTitulo.trim(),
         descripcion: mDesc.trim(),
-        colaborador_id: mColaborador ? Number(mColaborador) : null,
+        colaborador_ids: mColaboradores,
         tipo: mTipo,
         prioridad: mPrioridad,
         fecha_limite: mFecha,
@@ -432,7 +446,7 @@ export default function MetasPage() {
                       <MetaCard
                         key={m.id}
                         meta={m}
-                        colab={m.colaborador_id != null ? colabById.get(m.colaborador_id) || null : null}
+                        colabs={metaColabIds(m).map((id) => colabById.get(id)).filter((c): c is ColaboradorLite => Boolean(c))}
                         collapsible
                         onEdit={() => openEditMeta(m)}
                         onDelete={() => deleteMeta(m.id)}
@@ -460,15 +474,40 @@ export default function MetasPage() {
             <Field label="Descripción">
               <textarea style={{ ...inputStyle, resize: "vertical", lineHeight: 1.5 }} rows={2} value={mDesc} onChange={(e) => setMDesc(e.target.value)} placeholder="Detalle de la meta..." />
             </Field>
+            <Field label="Participantes (selecciona uno o varios para una meta compartida)">
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem", maxHeight: "9rem", overflowY: "auto", padding: "0.15rem" }}>
+                {colaboradores.length === 0 && <span style={{ fontSize: "0.78rem", color: "var(--text-muted)" }}>No hay colaboradores.</span>}
+                {colaboradores.map((c) => {
+                  const active = mColaboradores.includes(c.id);
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => toggleMColaborador(c.id)}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.35rem",
+                        padding: "0.3rem 0.55rem",
+                        borderRadius: "9999px",
+                        border: active ? `1px solid ${c.color}` : "1px solid var(--border)",
+                        background: active ? `${c.color}22` : "var(--surface-2)",
+                        color: active ? "var(--text)" : "var(--text-secondary)",
+                        fontSize: "0.78rem",
+                        fontWeight: active ? 700 : 500,
+                        cursor: "pointer",
+                        fontFamily: "inherit",
+                      }}
+                    >
+                      <ColaboradorAvatar colaborador={c} size={18} />
+                      <span>{c.nombre}</span>
+                      {active && <Check size={13} color={c.color} />}
+                    </button>
+                  );
+                })}
+              </div>
+            </Field>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.6rem" }}>
-              <Field label="Responsable">
-                <select style={inputStyle} value={mColaborador} onChange={(e) => setMColaborador(e.target.value)}>
-                  <option value="">Sin asignar</option>
-                  {colaboradores.map((c) => (
-                    <option key={c.id} value={String(c.id)}>{c.nombre} — {c.puesto}</option>
-                  ))}
-                </select>
-              </Field>
               <Field label="Tipo">
                 <select style={inputStyle} value={mTipo} onChange={(e) => setMTipo(e.target.value)}>
                   {TIPOS_META.map((t) => (
@@ -655,7 +694,7 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
 
 function MetaCard({
   meta,
-  colab,
+  colabs,
   collapsible = false,
   onEdit,
   onDelete,
@@ -665,7 +704,7 @@ function MetaCard({
   onDeletePaso,
 }: {
   meta: Meta;
-  colab: ColaboradorLite | null;
+  colabs: ColaboradorLite[];
   collapsible?: boolean;
   onEdit: () => void;
   onDelete: () => void;
@@ -677,6 +716,7 @@ function MetaCard({
   const [newPaso, setNewPaso] = useState("");
   const [showPasoInput, setShowPasoInput] = useState(false);
   const [expanded, setExpanded] = useState(!collapsible);
+  const primaryColab = colabs[0] || null;
   const tInfo = tipoInfo(meta.tipo);
   const pInfo = prioridadInfo(meta.prioridad);
   const eInfo = estadoInfo(meta.estado);
@@ -701,7 +741,7 @@ function MetaCard({
         style={{
           background: "var(--surface)",
           border: "1px solid var(--border)",
-          borderLeft: `3px solid ${colab?.color || tInfo.color}`,
+          borderLeft: `3px solid ${primaryColab?.color || tInfo.color}`,
           borderRadius: "0.6rem",
           padding: "0.5rem 0.65rem",
           display: "flex",
@@ -736,7 +776,7 @@ function MetaCard({
       style={{
         background: "var(--surface)",
         border: "1px solid var(--border)",
-        borderLeft: `3px solid ${colab?.color || tInfo.color}`,
+        borderLeft: `3px solid ${primaryColab?.color || tInfo.color}`,
         borderRadius: "0.75rem",
         padding: "0.85rem",
         display: "flex",
@@ -779,10 +819,23 @@ function MetaCard({
         )}
       </div>
 
-      {colab && (
-        <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
-          <ColaboradorAvatar colaborador={colab} size={22} />
-          <span style={{ fontSize: "0.74rem", color: "var(--text-muted)" }}>{colab.nombre}</span>
+      {colabs.length > 0 && (
+        <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center" }}>
+            {colabs.slice(0, 4).map((c, i) => (
+              <div key={c.id} style={{ marginLeft: i === 0 ? 0 : "-0.45rem", zIndex: colabs.length - i }}>
+                <ColaboradorAvatar colaborador={c} size={22} />
+              </div>
+            ))}
+            {colabs.length > 4 && (
+              <span style={{ marginLeft: "-0.45rem", width: 22, height: 22, borderRadius: "50%", background: "var(--surface-2)", border: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.6rem", fontWeight: 700, color: "var(--text-muted)" }}>
+                +{colabs.length - 4}
+              </span>
+            )}
+          </div>
+          <span style={{ fontSize: "0.74rem", color: "var(--text-muted)" }}>
+            {colabs.length === 1 ? colabs[0].nombre : `${colabs.length} participantes`}
+          </span>
         </div>
       )}
 
@@ -946,7 +999,7 @@ function KanbanView({
               >
                 <MetaCard
                   meta={m}
-                  colab={m.colaborador_id != null ? colabById.get(m.colaborador_id) || null : null}
+                  colabs={metaColabIds(m).map((id) => colabById.get(id)).filter((c): c is ColaboradorLite => Boolean(c))}
                   collapsible
                   onEdit={() => onEdit(m)}
                   onDelete={() => onDelete(m.id)}
@@ -980,7 +1033,7 @@ function EquipoView({
 }) {
   const [selected, setSelected] = useState<number | null>(null);
   const selectedColab = selected != null ? colaboradores.find((c) => c.id === selected) || null : null;
-  const selectedMetas = selected != null ? metas.filter((m) => m.colaborador_id === selected) : [];
+  const selectedMetas = selected != null ? metas.filter((m) => metaColabIds(m).includes(selected)) : [];
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "0.8rem" }}>
@@ -991,8 +1044,8 @@ function EquipoView({
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 17rem), 1fr))", gap: "0.7rem" }}>
         {colaboradores.map((c) => {
-          const count = metas.filter((m) => m.colaborador_id === c.id).length;
-          const done = metas.filter((m) => m.colaborador_id === c.id && m.estado === "completada").length;
+          const count = metas.filter((m) => metaColabIds(m).includes(c.id)).length;
+          const done = metas.filter((m) => metaColabIds(m).includes(c.id) && m.estado === "completada").length;
           const isOpen = selected === c.id;
           return (
             <div

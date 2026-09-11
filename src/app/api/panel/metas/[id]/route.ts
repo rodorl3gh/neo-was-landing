@@ -19,6 +19,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       titulo?: string;
       descripcion?: string;
       colaborador_id?: number | null;
+      colaborador_ids?: number[];
       tipo?: string;
       prioridad?: MetaPrioridad;
       fecha_limite?: string;
@@ -27,7 +28,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     } = {};
     if (body.titulo !== undefined && String(body.titulo).trim() !== "") data.titulo = String(body.titulo).trim();
     if (body.descripcion !== undefined) data.descripcion = String(body.descripcion);
-    if (body.colaborador_id !== undefined) data.colaborador_id = body.colaborador_id != null && body.colaborador_id !== "" ? Number(body.colaborador_id) : null;
+    if (Array.isArray(body.colaborador_ids)) {
+      data.colaborador_ids = body.colaborador_ids.map((v: unknown) => Number(v)).filter((n: number) => Number.isFinite(n));
+    } else if (body.colaborador_id !== undefined) {
+      data.colaborador_id = body.colaborador_id != null && body.colaborador_id !== "" ? Number(body.colaborador_id) : null;
+    }
     if (body.tipo !== undefined) data.tipo = String(body.tipo);
     if (body.prioridad !== undefined && ["alta", "media", "baja"].includes(body.prioridad)) data.prioridad = body.prioridad;
     if (body.fecha_limite !== undefined) data.fecha_limite = String(body.fecha_limite);

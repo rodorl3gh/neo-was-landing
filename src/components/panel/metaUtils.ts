@@ -7,6 +7,7 @@ export interface TipoMeta {
 export const TIPOS_META: TipoMeta[] = [
   { value: "trabajo", label: "Trabajo", color: "#3b82f6" },
   { value: "capacitacion", label: "Capacitación", color: "#a855f7" },
+  { value: "taller_ponencia", label: "Taller o Ponencia", color: "#8b5cf6" },
   { value: "clientes", label: "Clientes", color: "#0ea5e9" },
   { value: "prospeccion", label: "Prospección", color: "#f59e0b" },
   { value: "administracion", label: "Administración", color: "#14b8a6" },

@@ -28,22 +28,29 @@ export async function POST(req: NextRequest) {
       ? body.pasos.map((p: unknown) => String(p)).filter((p: string) => p.trim() !== "")
       : [];
     const prioridad: MetaPrioridad = ["alta", "media", "baja"].includes(body.prioridad) ? body.prioridad : "media";
-    const colaboradorId = body.colaborador_id != null && body.colaborador_id !== "" ? Number(body.colaborador_id) : null;
+    const colaboradorIds: number[] = Array.isArray(body.colaborador_ids)
+      ? body.colaborador_ids.map((v: unknown) => Number(v)).filter((n: number) => Number.isFinite(n))
+      : body.colaborador_id != null && body.colaborador_id !== ""
+        ? [Number(body.colaborador_id)]
+        : [];
     const id = createMeta({
       titulo,
       descripcion: body.descripcion ? String(body.descripcion) : "",
-      colaborador_id: colaboradorId,
+      colaborador_ids: colaboradorIds,
       tipo: body.tipo ? String(body.tipo) : "trabajo",
       prioridad,
       fecha_limite: body.fecha_limite ? String(body.fecha_limite) : "",
       estado: ["pendiente", "progreso", "completada"].includes(body.estado) ? body.estado : "pendiente",
       pasos,
     });
-    const colab = colaboradorId ? getColaboradorById(colaboradorId) : null;
+    const nombres = colaboradorIds
+      .map((cid) => getColaboradorById(cid)?.nombre)
+      .filter(Boolean)
+      .join(", ");
     logActivity({
       tipo: "meta_creada",
       actor: me.username || "",
-      mensaje: `${me.username} creó la meta "${titulo}"${colab ? ` para ${colab.nombre}` : ""}`,
+      mensaje: `${me.username} creó la meta "${titulo}"${nombres ? ` para ${nombres}` : ""}`,
       detalle: body.fecha_limite ? `Fecha límite: ${body.fecha_limite}` : "",
     });
     return NextResponse.json({ id, metas: getMetas() });

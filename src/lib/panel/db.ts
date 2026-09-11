@@ -72,6 +72,13 @@ function runMigrations(db: Database.Database) {
     CREATE INDEX IF NOT EXISTS idx_metas_fecha ON metas(fecha_limite);
     CREATE INDEX IF NOT EXISTS idx_metas_estado ON metas(estado);
 
+    CREATE TABLE IF NOT EXISTS meta_colaboradores (
+      meta_id INTEGER NOT NULL REFERENCES metas(id) ON DELETE CASCADE,
+      colaborador_id INTEGER NOT NULL REFERENCES colaboradores(id) ON DELETE CASCADE,
+      PRIMARY KEY (meta_id, colaborador_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_meta_colab_colaborador ON meta_colaboradores(colaborador_id);
+
     CREATE TABLE IF NOT EXISTS meta_pasos (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       meta_id INTEGER NOT NULL REFERENCES metas(id) ON DELETE CASCADE,
@@ -118,6 +125,12 @@ function runMigrations(db: Database.Database) {
   // Migracion: columnas de usuarios (contraseña cifrada + colaborador vinculado)
   try { db.exec("ALTER TABLE users ADD COLUMN password_enc TEXT NOT NULL DEFAULT ''"); } catch { /* ya existe */ }
   try { db.exec("ALTER TABLE users ADD COLUMN colaborador_id INTEGER"); } catch { /* ya existe */ }
+
+  // Migracion: metas compartidas (pasa el responsable existente a la tabla de participantes)
+  db.exec(`
+    INSERT OR IGNORE INTO meta_colaboradores (meta_id, colaborador_id)
+    SELECT id, colaborador_id FROM metas WHERE colaborador_id IS NOT NULL;
+  `);
 }
 
 const SEED_USERS: { username: string; password: string; colaborador: string }[] = [
@@ -344,12 +357,30 @@ export interface MetaPaso {
 
 export interface MetaWithPasos extends Meta {
   pasos: MetaPaso[];
+  colaboradores: number[];
 }
 
 function attachPasos(metas: Meta[]): MetaWithPasos[] {
   const db = getDb();
   const stmt = db.prepare("SELECT * FROM meta_pasos WHERE meta_id = ? ORDER BY orden, id");
-  return metas.map((m) => ({ ...m, pasos: stmt.all(m.id) as MetaPaso[] }));
+  const colabStmt = db.prepare("SELECT colaborador_id FROM meta_colaboradores WHERE meta_id = ? ORDER BY colaborador_id");
+  return metas.map((m) => {
+    const ids = (colabStmt.all(m.id) as { colaborador_id: number }[]).map((r) => r.colaborador_id);
+    if (ids.length === 0 && m.colaborador_id != null) ids.push(m.colaborador_id);
+    return { ...m, pasos: stmt.all(m.id) as MetaPaso[], colaboradores: ids };
+  });
+}
+
+function setMetaColaboradores(metaId: number, ids: number[]) {
+  const db = getDb();
+  const unique = Array.from(new Set(ids.filter((n) => Number.isFinite(n))));
+  db.prepare("DELETE FROM meta_colaboradores WHERE meta_id = ?").run(metaId);
+  const stmt = db.prepare("INSERT OR IGNORE INTO meta_colaboradores (meta_id, colaborador_id) VALUES (?, ?)");
+  const insertMany = db.transaction((list: number[]) => {
+    for (const cid of list) stmt.run(metaId, cid);
+  });
+  insertMany(unique);
+  return unique;
 }
 
 export function getMetas(filters?: {
@@ -361,7 +392,10 @@ export function getMetas(filters?: {
 }): MetaWithPasos[] {
   const where: string[] = [];
   const values: unknown[] = [];
-  if (filters?.colaborador_id != null) { where.push("colaborador_id = ?"); values.push(filters.colaborador_id); }
+  if (filters?.colaborador_id != null) {
+    where.push("(colaborador_id = ? OR id IN (SELECT meta_id FROM meta_colaboradores WHERE colaborador_id = ?))");
+    values.push(filters.colaborador_id, filters.colaborador_id);
+  }
   if (filters?.tipo) { where.push("tipo = ?"); values.push(filters.tipo); }
   if (filters?.estado) { where.push("estado = ?"); values.push(filters.estado); }
   if (filters?.desde) { where.push("fecha_limite >= ?"); values.push(filters.desde); }
@@ -381,6 +415,7 @@ export function createMeta(data: {
   titulo: string;
   descripcion?: string;
   colaborador_id?: number | null;
+  colaborador_ids?: number[];
   tipo?: string;
   prioridad?: MetaPrioridad;
   fecha_limite?: string;
@@ -389,6 +424,11 @@ export function createMeta(data: {
 }): number {
   const db = getDb();
   const maxOrden = (db.prepare("SELECT COALESCE(MAX(orden), 0) as m FROM metas").get() as { m: number }).m;
+  const ids = data.colaborador_ids && data.colaborador_ids.length > 0
+    ? Array.from(new Set(data.colaborador_ids.map(Number).filter((n) => Number.isFinite(n))))
+    : data.colaborador_id != null
+      ? [data.colaborador_id]
+      : [];
   const info = db
     .prepare(
       "INSERT INTO metas (titulo, descripcion, colaborador_id, tipo, prioridad, fecha_limite, estado, orden) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
@@ -396,7 +436,7 @@ export function createMeta(data: {
     .run(
       data.titulo,
       data.descripcion || "",
-      data.colaborador_id ?? null,
+      ids[0] ?? null,
       data.tipo || "trabajo",
       data.prioridad || "media",
       data.fecha_limite || "",
@@ -404,6 +444,7 @@ export function createMeta(data: {
       maxOrden + 1
     );
   const metaId = info.lastInsertRowid as number;
+  if (ids.length > 0) setMetaColaboradores(metaId, ids);
   if (data.pasos && data.pasos.length > 0) {
     const stmt = db.prepare("INSERT INTO meta_pasos (meta_id, texto, orden) VALUES (?, ?, ?)");
     const insertMany = db.transaction((pasos: string[]) => {
@@ -420,6 +461,7 @@ export function updateMeta(
     titulo?: string;
     descripcion?: string;
     colaborador_id?: number | null;
+    colaborador_ids?: number[];
     tipo?: string;
     prioridad?: MetaPrioridad;
     fecha_limite?: string;
@@ -432,7 +474,15 @@ export function updateMeta(
   const values: unknown[] = [];
   if (data.titulo !== undefined) { fields.push("titulo = ?"); values.push(data.titulo); }
   if (data.descripcion !== undefined) { fields.push("descripcion = ?"); values.push(data.descripcion); }
-  if (data.colaborador_id !== undefined) { fields.push("colaborador_id = ?"); values.push(data.colaborador_id); }
+  if (data.colaborador_ids !== undefined) {
+    const ids = setMetaColaboradores(id, data.colaborador_ids);
+    fields.push("colaborador_id = ?");
+    values.push(ids[0] ?? null);
+  } else if (data.colaborador_id !== undefined) {
+    fields.push("colaborador_id = ?");
+    values.push(data.colaborador_id);
+    setMetaColaboradores(id, data.colaborador_id != null ? [data.colaborador_id] : []);
+  }
   if (data.tipo !== undefined) { fields.push("tipo = ?"); values.push(data.tipo); }
   if (data.prioridad !== undefined) { fields.push("prioridad = ?"); values.push(data.prioridad); }
   if (data.fecha_limite !== undefined) { fields.push("fecha_limite = ?"); values.push(data.fecha_limite); }
