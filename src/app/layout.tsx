@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 import { Inter, Space_Grotesk, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
@@ -21,10 +21,27 @@ const jetbrainsMono = JetBrains_Mono({
   weight: ["400", "500"],
 });
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#0a0a0c",
+};
+
 export const metadata: Metadata = {
   title: "Neo Was | Impulsamos negocios con estrategias digitales",
   description:
     "Agencia de marketing digital, redes sociales, paginas web, publicidad, IA y consultoria para negocios que quieren crecer.",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Wasito",
+  },
+  icons: {
+    icon: "/logo-mark.png",
+    apple: "/apple-icon.png",
+  },
   keywords: [
     "marketing digital",
     "paginas web",

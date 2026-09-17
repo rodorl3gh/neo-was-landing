@@ -11,6 +11,7 @@ import {
   Layers,
   UserCog,
   Bell,
+  Settings,
   type LucideIcon,
 } from "lucide-react";
 
@@ -34,6 +35,7 @@ export const MODULES: Module[] = [
   { href: "/panel/calendario", label: "Calendario", desc: "Metas y eventos del equipo", icon: CalendarDays },
   { href: "/panel/asistente", label: "Asistente", desc: "Trabaja por voz o mensaje", icon: MessageCircle },
   { href: "/panel/usuarios", label: "Usuarios", desc: "Cuentas y contraseñas del equipo", icon: UserCog },
+  { href: "/panel/configuracion", label: "Configuración", desc: "Notificaciones y preferencias", icon: Settings },
   { href: "/panel/notificaciones", label: "Notificaciones", desc: "Registro de actividad del sistema", icon: Bell, superadminOnly: true },
 ];
 

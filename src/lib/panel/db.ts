@@ -120,6 +120,30 @@ function runMigrations(db: Database.Database) {
       created_at INTEGER NOT NULL DEFAULT (unixepoch())
     );
     CREATE INDEX IF NOT EXISTS idx_activity_created ON activity_log(created_at);
+
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL DEFAULT ''
+    );
+
+    CREATE TABLE IF NOT EXISTS push_subscriptions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      username TEXT NOT NULL DEFAULT '',
+      endpoint TEXT UNIQUE NOT NULL,
+      p256dh TEXT NOT NULL DEFAULT '',
+      auth TEXT NOT NULL DEFAULT '',
+      created_at INTEGER NOT NULL DEFAULT (unixepoch())
+    );
+    CREATE INDEX IF NOT EXISTS idx_push_user ON push_subscriptions(username);
+
+    CREATE TABLE IF NOT EXISTS user_prefs (
+      username TEXT PRIMARY KEY,
+      notif_enabled INTEGER NOT NULL DEFAULT 1,
+      sound TEXT NOT NULL DEFAULT 'device',
+      sound_data TEXT NOT NULL DEFAULT '',
+      sound_name TEXT NOT NULL DEFAULT '',
+      updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+    );
   `);
 
   // Migracion: columnas de usuarios (contraseña cifrada + colaborador vinculado)
@@ -715,9 +739,22 @@ export interface ActivityRow {
 
 export function logActivity(data: { tipo: string; actor?: string; mensaje: string; detalle?: string }) {
   try {
-    getDb()
+    const info = getDb()
       .prepare("INSERT INTO activity_log (tipo, actor, mensaje, detalle) VALUES (?, ?, ?, ?)")
       .run(data.tipo, data.actor || "", data.mensaje, data.detalle || "");
+    const entry: ActivityRow = {
+      id: Number(info.lastInsertRowid),
+      tipo: data.tipo,
+      actor: data.actor || "",
+      mensaje: data.mensaje,
+      detalle: data.detalle || "",
+      created_at: Math.floor(Date.now() / 1000),
+    };
+    import("./push")
+      .then((m) => m.broadcastPush(entry))
+      .catch(() => {
+        /* el push nunca debe romper la operación */
+      });
   } catch {
     /* el log nunca debe romper la operación */
   }
@@ -738,4 +775,103 @@ export function purgeOldActivity(days = ACTIVITY_RETENTION_DAYS) {
 export function getActivityLog(limit = 200): ActivityRow[] {
   purgeOldActivity();
   return getDb().prepare("SELECT * FROM activity_log ORDER BY id DESC LIMIT ?").all(limit) as ActivityRow[];
+}
+
+export function getLatestActivityId(): number {
+  const row = getDb().prepare("SELECT COALESCE(MAX(id), 0) AS id FROM activity_log").get() as { id: number };
+  return row.id;
+}
+
+export function getActivitySince(sinceId: number, limit = 50): ActivityRow[] {
+  return getDb()
+    .prepare("SELECT * FROM activity_log WHERE id > ? ORDER BY id DESC LIMIT ?")
+    .all(sinceId, limit) as ActivityRow[];
+}
+
+// ------------------------------------------------------------------
+// Configuración clave/valor
+// ------------------------------------------------------------------
+export function getSetting(key: string): string {
+  const row = getDb().prepare("SELECT value FROM settings WHERE key = ?").get(key) as { value: string } | undefined;
+  return row ? row.value : "";
+}
+
+export function setSetting(key: string, value: string) {
+  getDb()
+    .prepare("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value")
+    .run(key, value);
+}
+
+// ------------------------------------------------------------------
+// Suscripciones Web Push
+// ------------------------------------------------------------------
+export interface PushSubscriptionRow {
+  id: number;
+  username: string;
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+  created_at: number;
+}
+
+export function getPushSubscriptions(): PushSubscriptionRow[] {
+  return getDb().prepare("SELECT * FROM push_subscriptions").all() as PushSubscriptionRow[];
+}
+
+export function addPushSubscription(data: { username: string; endpoint: string; p256dh: string; auth: string }) {
+  getDb()
+    .prepare(
+      `INSERT INTO push_subscriptions (username, endpoint, p256dh, auth) VALUES (?, ?, ?, ?)
+       ON CONFLICT(endpoint) DO UPDATE SET username = excluded.username, p256dh = excluded.p256dh, auth = excluded.auth`
+    )
+    .run(data.username, data.endpoint, data.p256dh, data.auth);
+}
+
+export function removePushSubscription(endpoint: string) {
+  getDb().prepare("DELETE FROM push_subscriptions WHERE endpoint = ?").run(endpoint);
+}
+
+// ------------------------------------------------------------------
+// Preferencias de notificación por usuario
+// ------------------------------------------------------------------
+export interface UserPrefs {
+  username: string;
+  notif_enabled: number;
+  sound: string;
+  sound_data: string;
+  sound_name: string;
+}
+
+const DEFAULT_PREFS: Omit<UserPrefs, "username"> = {
+  notif_enabled: 1,
+  sound: "device",
+  sound_data: "",
+  sound_name: "",
+};
+
+export function getUserPrefs(username: string): UserPrefs {
+  const row = getDb().prepare("SELECT * FROM user_prefs WHERE username = ?").get(username) as UserPrefs | undefined;
+  return row || { username, ...DEFAULT_PREFS };
+}
+
+export function setUserPrefs(data: { username: string; notif_enabled: number; sound: string; sound_data?: string; sound_name?: string }) {
+  const current = getUserPrefs(data.username);
+  getDb()
+    .prepare(
+      `INSERT INTO user_prefs (username, notif_enabled, sound, sound_data, sound_name, updated_at)
+       VALUES (?, ?, ?, ?, ?, unixepoch())
+       ON CONFLICT(username) DO UPDATE SET
+         notif_enabled = excluded.notif_enabled,
+         sound = excluded.sound,
+         sound_data = excluded.sound_data,
+         sound_name = excluded.sound_name,
+         updated_at = unixepoch()`
+    )
+    .run(
+      data.username,
+      data.notif_enabled,
+      data.sound,
+      data.sound_data !== undefined ? data.sound_data : current.sound_data,
+      data.sound_name !== undefined ? data.sound_name : current.sound_name
+    );
 }
