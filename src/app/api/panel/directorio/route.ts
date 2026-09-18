@@ -23,15 +23,19 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const negocio = String(body?.negocio || "").trim();
     const nicho = String(body?.nicho || "").trim();
+    const telefono = String(body?.telefono || "").replace(/\D/g, "");
     const tipo = ["prospecto", "cliente"].includes(body?.tipo) ? String(body.tipo) : "prospecto";
     if (!nicho) return NextResponse.json({ error: "El nicho de mercado es requerido" }, { status: 400 });
     if (!negocio) return NextResponse.json({ error: "El nombre del negocio es requerido" }, { status: 400 });
+    if (telefono.length !== 10) {
+      return NextResponse.json({ error: "El teléfono debe tener exactamente 10 dígitos" }, { status: 400 });
+    }
     const id = createDirectorioEntry({
       tipo,
       nicho,
       negocio,
       contacto: String(body?.contacto || "").trim(),
-      telefono: String(body?.telefono || "").trim(),
+      telefono,
       correo: String(body?.correo || "").trim(),
       fecha_alta: String(body?.fecha_alta || "").trim(),
       servicio: String(body?.servicio || "").trim(),

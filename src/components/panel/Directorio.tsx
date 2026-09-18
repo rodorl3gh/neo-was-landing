@@ -138,6 +138,11 @@ export default function Directorio({ fixedTipo }: { fixedTipo?: "prospecto" | "c
       setError("Ingresa el nombre del negocio");
       return;
     }
+    const telefono = formTelefono.replace(/\D/g, "");
+    if (telefono.length !== 10) {
+      setError("El teléfono debe tener exactamente 10 dígitos");
+      return;
+    }
     setSaving(true);
     try {
       const body = {
@@ -145,7 +150,7 @@ export default function Directorio({ fixedTipo }: { fixedTipo?: "prospecto" | "c
         nicho: formNicho,
         negocio: formNegocio.trim(),
         contacto: formContacto.trim(),
-        telefono: formTelefono.trim(),
+        telefono,
         correo: formCorreo.trim(),
         fecha_alta: formFechaAlta,
         servicio: formServicio.trim(),
@@ -358,8 +363,15 @@ export default function Directorio({ fixedTipo }: { fixedTipo?: "prospecto" | "c
                 <input style={input} value={formContacto} onChange={(e) => setFormContacto(e.target.value)} placeholder="Nombre de quien nos atiende" />
               </div>
               <div style={fieldGroup}>
-                <label style={lbl}>Teléfono</label>
-                <input style={input} value={formTelefono} onChange={(e) => setFormTelefono(e.target.value)} placeholder="222 123 4567" inputMode="tel" />
+                <label style={lbl}>Teléfono * (10 dígitos)</label>
+                <input
+                  style={input}
+                  value={formTelefono}
+                  onChange={(e) => setFormTelefono(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                  placeholder="2221234567"
+                  inputMode="numeric"
+                  maxLength={10}
+                />
               </div>
               <div style={fieldGroup}>
                 <label style={lbl}>Correo electrónico</label>
