@@ -15,6 +15,7 @@ import {
   Settings,
   Building2,
   History,
+  Briefcase,
   type LucideIcon,
 } from "lucide-react";
 
@@ -34,7 +35,17 @@ export const MODULES: Module[] = [
     { href: "/panel/metas", label: "Activas", desc: "Metas pendientes y en proceso", icon: Target },
     { href: "/panel/metas/historial", label: "Historial", desc: "Metas cumplidas y desempeño", icon: History },
   ] },
-  { href: "/panel/contabilidad", label: "Contabilidad", desc: "Ingresos, egresos y facturación", icon: Wallet },
+  {
+    href: "/panel/administracion",
+    label: "Administración",
+    desc: "Contabilidad y contratos",
+    icon: Briefcase,
+    children: [
+      { href: "/panel/administracion", label: "Resumen", desc: "Indicadores administrativos", icon: LayoutGrid },
+      { href: "/panel/contabilidad", label: "Contabilidad", desc: "Ingresos, egresos y facturación", icon: Wallet },
+      { href: "/panel/contratos", label: "Contratos", desc: "Plantillas y vencimientos", icon: FileText },
+    ],
+  },
   {
     href: "/panel/directorio",
     label: "Directorio",
@@ -47,7 +58,6 @@ export const MODULES: Module[] = [
     ],
   },
   { href: "/panel/procesos", label: "Procesos", desc: "Trabajo activo con cada cliente", icon: Layers },
-  { href: "/panel/contratos", label: "Contratos", desc: "Plantillas y contratos por cliente", icon: FileText },
   { href: "/panel/calendario", label: "Calendario", desc: "Metas y eventos del equipo", icon: CalendarDays },
   { href: "/panel/asistente", label: "Asistente", desc: "Trabaja por voz o mensaje", icon: MessageCircle },
   { href: "/panel/usuarios", label: "Usuarios", desc: "Cuentas y contraseñas del equipo", icon: UserCog },
