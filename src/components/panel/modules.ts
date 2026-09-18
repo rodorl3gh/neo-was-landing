@@ -12,6 +12,7 @@ import {
   UserCog,
   Bell,
   Settings,
+  Building2,
   type LucideIcon,
 } from "lucide-react";
 
@@ -29,6 +30,7 @@ export const MODULES: Module[] = [
   { href: "/panel/metas", label: "Metas", desc: "Metas y actividades por colaborador", icon: Target },
   { href: "/panel/contabilidad", label: "Contabilidad", desc: "Ingresos, egresos y facturación", icon: Wallet },
   { href: "/panel/clientes", label: "Clientes", desc: "Datos y servicios de cada cliente", icon: Users },
+  { href: "/panel/directorio", label: "Directorio", desc: "Prospectos y clientes por nicho de mercado", icon: Building2 },
   { href: "/panel/prospectos", label: "Prospectos", desc: "Pipeline de nuevos prospectos", icon: UserPlus },
   { href: "/panel/procesos", label: "Procesos", desc: "Trabajo activo con cada cliente", icon: Layers },
   { href: "/panel/contratos", label: "Contratos", desc: "Plantillas y contratos por cliente", icon: FileText },

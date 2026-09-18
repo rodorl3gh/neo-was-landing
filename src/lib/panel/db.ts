@@ -144,6 +144,21 @@ function runMigrations(db: Database.Database) {
       sound_name TEXT NOT NULL DEFAULT '',
       updated_at INTEGER NOT NULL DEFAULT (unixepoch())
     );
+
+    CREATE TABLE IF NOT EXISTS directorio (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tipo TEXT NOT NULL DEFAULT 'prospecto',
+      nicho TEXT NOT NULL DEFAULT '',
+      negocio TEXT NOT NULL DEFAULT '',
+      contacto TEXT NOT NULL DEFAULT '',
+      telefono TEXT NOT NULL DEFAULT '',
+      correo TEXT NOT NULL DEFAULT '',
+      notas TEXT NOT NULL DEFAULT '',
+      created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+      updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+    );
+    CREATE INDEX IF NOT EXISTS idx_directorio_tipo ON directorio(tipo);
+    CREATE INDEX IF NOT EXISTS idx_directorio_nicho ON directorio(nicho);
   `);
 
   // Migracion: columnas de usuarios (contraseña cifrada + colaborador vinculado)
@@ -270,6 +285,93 @@ export function updateEnlace(id: number, data: { titulo?: string; url?: string; 
 
 export function deleteEnlace(id: number) {
   getDb().prepare("DELETE FROM enlaces WHERE id = ?").run(id);
+}
+
+// ------------------------------------------------------------------
+// Directorio (prospectos y clientes)
+// ------------------------------------------------------------------
+export interface DirectorioEntry {
+  id: number;
+  tipo: string;
+  nicho: string;
+  negocio: string;
+  contacto: string;
+  telefono: string;
+  correo: string;
+  notas: string;
+  created_at: number;
+  updated_at: number;
+}
+
+export interface DirectorioInput {
+  tipo?: string;
+  nicho?: string;
+  negocio?: string;
+  contacto?: string;
+  telefono?: string;
+  correo?: string;
+  notas?: string;
+}
+
+export function getDirectorio(filters?: { tipo?: string; nicho?: string; q?: string }): DirectorioEntry[] {
+  const where: string[] = [];
+  const values: unknown[] = [];
+  if (filters?.tipo) {
+    where.push("tipo = ?");
+    values.push(filters.tipo);
+  }
+  if (filters?.nicho) {
+    where.push("nicho = ?");
+    values.push(filters.nicho);
+  }
+  if (filters?.q) {
+    where.push("(negocio LIKE ? OR contacto LIKE ? OR telefono LIKE ? OR correo LIKE ?)");
+    const like = `%${filters.q}%`;
+    values.push(like, like, like, like);
+  }
+  const clause = where.length ? `WHERE ${where.join(" AND ")}` : "";
+  return getDb()
+    .prepare(`SELECT * FROM directorio ${clause} ORDER BY negocio COLLATE NOCASE, id`)
+    .all(...values) as DirectorioEntry[];
+}
+
+export function createDirectorioEntry(data: DirectorioInput): number {
+  return getDb()
+    .prepare(
+      "INSERT INTO directorio (tipo, nicho, negocio, contacto, telefono, correo, notas) VALUES (?, ?, ?, ?, ?, ?, ?)"
+    )
+    .run(
+      data.tipo || "prospecto",
+      data.nicho || "",
+      data.negocio || "",
+      data.contacto || "",
+      data.telefono || "",
+      data.correo || "",
+      data.notas || ""
+    ).lastInsertRowid as number;
+}
+
+export function updateDirectorioEntry(id: number, data: DirectorioInput) {
+  const fields: string[] = [];
+  const values: unknown[] = [];
+  for (const [k, v] of Object.entries(data)) {
+    if (v !== undefined) {
+      fields.push(`${k} = ?`);
+      values.push(v);
+    }
+  }
+  if (fields.length === 0) return;
+  fields.push("updated_at = unixepoch()");
+  values.push(id);
+  getDb().prepare(`UPDATE directorio SET ${fields.join(", ")} WHERE id = ?`).run(...values);
+}
+
+export function deleteDirectorioEntry(id: number) {
+  getDb().prepare("DELETE FROM directorio WHERE id = ?").run(id);
+}
+
+export function getDirectorioEntry(id: number): DirectorioEntry | undefined {
+  return getDb().prepare("SELECT * FROM directorio WHERE id = ?").get(id) as DirectorioEntry | undefined;
 }
 
 // ------------------------------------------------------------------

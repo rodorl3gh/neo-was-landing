@@ -14,6 +14,7 @@ import {
   CheckCircle2,
   Trash2,
   Users,
+  Building2,
   CalendarPlus,
   CalendarX,
   ChevronLeft,
@@ -50,6 +51,9 @@ const TYPE_META: Record<string, { icon: LucideIcon; color: string; label: string
   colaborador_eliminado: { icon: Users, color: "#ef4444", label: "Colaborador" },
   evento_creado: { icon: CalendarPlus, color: "#36afc0", label: "Evento" },
   evento_eliminado: { icon: CalendarX, color: "#ef4444", label: "Evento" },
+  directorio_creado: { icon: Building2, color: "#3b82f6", label: "Directorio" },
+  directorio_editado: { icon: Pencil, color: "#f59e0b", label: "Directorio" },
+  directorio_eliminado: { icon: Trash2, color: "#ef4444", label: "Directorio" },
 };
 
 const FILTERS = [
@@ -59,6 +63,7 @@ const FILTERS = [
   { value: "meta", label: "Metas" },
   { value: "colaborador", label: "Colaboradores" },
   { value: "evento", label: "Eventos" },
+  { value: "directorio", label: "Directorio" },
   { value: "login", label: "Sesiones" },
 ];
 
@@ -127,6 +132,7 @@ export default function NotificacionesPage() {
     if (filter === "meta") return actividad.filter((a) => a.tipo.startsWith("meta"));
     if (filter === "colaborador") return actividad.filter((a) => a.tipo.startsWith("colaborador"));
     if (filter === "evento") return actividad.filter((a) => a.tipo.startsWith("evento"));
+    if (filter === "directorio") return actividad.filter((a) => a.tipo.startsWith("directorio"));
     return actividad.filter((a) => a.tipo === filter);
   }, [actividad, filter]);
 
