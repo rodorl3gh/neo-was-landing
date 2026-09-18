@@ -126,8 +126,10 @@ export default function MetasPage() {
     return map;
   }, [colaboradores]);
 
+  const activeMetas = useMemo(() => metas.filter((m) => m.estado !== "completada"), [metas]);
+
   const filtered = useMemo(() => {
-    return metas.filter((m) => {
+    return activeMetas.filter((m) => {
       if (filterColaborador !== "all") {
         const ids = metaColabIds(m);
         if (filterColaborador === "none" ? ids.length > 0 : !ids.includes(Number(filterColaborador))) return false;
@@ -136,15 +138,14 @@ export default function MetasPage() {
       if (filterPrioridad !== "all" && m.prioridad !== filterPrioridad) return false;
       return true;
     });
-  }, [metas, filterColaborador, filterTipo, filterPrioridad]);
+  }, [activeMetas, filterColaborador, filterTipo, filterPrioridad]);
 
   const stats = useMemo(() => {
-    const total = metas.length;
-    const completadas = metas.filter((m) => m.estado === "completada").length;
-    const progreso = metas.filter((m) => m.estado === "progreso").length;
-    const pendientes = total - completadas - progreso;
-    return { total, completadas, progreso, pendientes };
-  }, [metas]);
+    const total = activeMetas.length;
+    const progreso = activeMetas.filter((m) => m.estado === "progreso").length;
+    const pendientes = total - progreso;
+    return { total, progreso, pendientes };
+  }, [activeMetas]);
 
   const grouped = useMemo(() => {
     const groups = new Map<number | "none", Meta[]>();
@@ -361,10 +362,9 @@ export default function MetasPage() {
 
         {/* Resumen */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(8rem, 1fr))", gap: "0.7rem" }}>
-          <StatCard label="Total" value={stats.total} color="var(--cyan)" />
+          <StatCard label="Activas" value={stats.total} color="var(--cyan)" />
           <StatCard label="Pendientes" value={stats.pendientes} color="#94a3b8" />
           <StatCard label="En progreso" value={stats.progreso} color="#3b82f6" />
-          <StatCard label="Completadas" value={stats.completadas} color="var(--success)" />
         </div>
 
         {/* Controles */}
@@ -410,7 +410,7 @@ export default function MetasPage() {
         ) : view === "equipo" ? (
           <EquipoView
             colaboradores={colaboradores}
-            metas={metas}
+            metas={activeMetas}
             onCreate={openCreateColab}
             onEdit={openEditColab}
             onDelete={deleteColab}
@@ -1045,7 +1045,6 @@ function EquipoView({
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 17rem), 1fr))", gap: "0.7rem" }}>
         {colaboradores.map((c) => {
           const count = metas.filter((m) => metaColabIds(m).includes(c.id)).length;
-          const done = metas.filter((m) => metaColabIds(m).includes(c.id) && m.estado === "completada").length;
           const isOpen = selected === c.id;
           return (
             <div
@@ -1079,7 +1078,7 @@ function EquipoView({
                 </div>
                 <div style={{ fontSize: "0.74rem", color: "var(--text-muted)" }}>{c.puesto || "Sin puesto"}</div>
                 <div style={{ fontSize: "0.72rem", color: "var(--text-muted)", marginTop: "0.15rem" }}>
-                  {done}/{count} metas completadas
+                  {count} meta{count !== 1 ? "s" : ""} activa{count !== 1 ? "s" : ""}
                 </div>
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem", alignItems: "center" }}>

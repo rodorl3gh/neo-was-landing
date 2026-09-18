@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { useRouter, usePathname } from "next/navigation";
-import { Sun, Moon, LogOut, Menu, X, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { Sun, Moon, LogOut, Menu, X, PanelLeftClose, PanelLeftOpen, ChevronDown, ChevronRight } from "lucide-react";
 import { useTheme } from "./theme";
 import { apiGet, clearToken, getToken } from "@/lib/panel/api";
 import { MODULES, ROLE_LABELS } from "./modules";
@@ -12,11 +12,16 @@ export default function PanelShell({ title, children }: { title: string; childre
   const router = useRouter();
   const pathname = usePathname();
   const { theme, toggle } = useTheme();
+
+  function isPathActive(href: string) {
+    return href === "/panel" ? pathname === "/panel" : pathname === href || pathname.startsWith(`${href}/`);
+  }
   const [ready, setReady] = useState(false);
   const [username, setUsername] = useState("");
   const [role, setRole] = useState("");
   const [userColor, setUserColor] = useState("");
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({});
   const [collapsed, setCollapsed] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
     return localStorage.getItem("wasito_sidebar_collapsed") === "1";
@@ -118,58 +123,116 @@ export default function PanelShell({ title, children }: { title: string; childre
       <nav style={{ flex: 1, display: "flex", flexDirection: "column", gap: "0.2rem", overflowY: "auto", overflowX: "hidden" }}>
         {MODULES.filter((m) => !m.superadminOnly || role === "developer").map((item) => {
           const Icon = item.icon;
-          const isActive = item.href === "/panel" ? pathname === "/panel" : pathname.startsWith(item.href);
+          const directActive = isPathActive(item.href);
+          const childActive = (item.children || []).some((c) => pathname === c.href);
+          const isActive = directActive || childActive;
+          const hasChildren = !!item.children?.length;
+          const isOpen = isCollapsed ? false : (openMenus[item.href] ?? childActive);
+          const solidActive = isActive && !hasChildren;
+
           return (
-            <button
-              key={item.href}
-              onClick={() => {
-                router.push(item.href);
-                setMobileOpen(false);
-              }}
-              title={isCollapsed ? item.label : undefined}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: isCollapsed ? "center" : "flex-start",
-                gap: "0.7rem",
-                width: "100%",
-                padding: isCollapsed ? "0.62rem 0" : "0.62rem 0.75rem",
-                borderRadius: "0.625rem",
-                border: "none",
-                background: isActive ? "rgba(212,175,55,0.16)" : "transparent",
-                color: isActive ? "var(--gold)" : "var(--sidebar-text)",
-                fontWeight: isActive ? 600 : 500,
-                fontSize: "0.875rem",
-                cursor: "pointer",
-                transition: "all 0.15s ease",
-                textAlign: "left",
-                fontFamily: "inherit",
-                position: "relative",
-              }}
-              onMouseOver={(e) => {
-                if (!isActive) e.currentTarget.style.background = "rgba(255,255,255,0.06)";
-              }}
-              onMouseOut={(e) => {
-                if (!isActive) e.currentTarget.style.background = "transparent";
-              }}
-            >
-              {isActive && (
-                <span
-                  style={{
-                    position: "absolute",
-                    left: 0,
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    width: 3,
-                    height: "60%",
-                    borderRadius: 999,
-                    background: "var(--gold)",
-                  }}
-                />
+            <div key={item.href} style={{ display: "flex", flexDirection: "column", gap: "0.2rem" }}>
+              <button
+                onClick={() => {
+                  if (hasChildren && !isCollapsed) {
+                    const willOpen = !(openMenus[item.href] ?? childActive);
+                    setOpenMenus((prev) => ({ ...prev, [item.href]: willOpen }));
+                    if (willOpen) router.push(item.href);
+                  } else {
+                    router.push(item.href);
+                    setMobileOpen(false);
+                  }
+                }}
+                title={isCollapsed ? item.label : undefined}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: isCollapsed ? "center" : "flex-start",
+                  gap: "0.7rem",
+                  width: "100%",
+                  padding: isCollapsed ? "0.62rem 0" : "0.62rem 0.75rem",
+                  borderRadius: "0.625rem",
+                  border: "none",
+                  background: solidActive ? "rgba(212,175,55,0.16)" : "transparent",
+                  color: isActive ? "var(--gold)" : "var(--sidebar-text)",
+                  fontWeight: isActive ? 600 : 500,
+                  fontSize: "0.875rem",
+                  cursor: "pointer",
+                  transition: "all 0.15s ease",
+                  textAlign: "left",
+                  fontFamily: "inherit",
+                  position: "relative",
+                }}
+                onMouseOver={(e) => {
+                  if (!solidActive) e.currentTarget.style.background = "rgba(255,255,255,0.06)";
+                }}
+                onMouseOut={(e) => {
+                  if (!solidActive) e.currentTarget.style.background = "transparent";
+                }}
+              >
+                {solidActive && (
+                  <span
+                    style={{
+                      position: "absolute",
+                      left: 0,
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      width: 3,
+                      height: "60%",
+                      borderRadius: 999,
+                      background: "var(--gold)",
+                    }}
+                  />
+                )}
+                <Icon size={18} color={isActive ? "var(--gold)" : "var(--sidebar-muted)"} />
+                {!isCollapsed && <span style={{ flex: 1 }}>{item.label}</span>}
+                {!isCollapsed && hasChildren && (isOpen ? <ChevronDown size={15} color="var(--sidebar-muted)" /> : <ChevronRight size={15} color="var(--sidebar-muted)" />)}
+              </button>
+
+              {hasChildren && isOpen && (
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.15rem", marginLeft: "1.15rem", paddingLeft: "0.6rem", borderLeft: "1px solid var(--sidebar-border)" }}>
+                  {item.children!.filter((c) => !c.superadminOnly || role === "developer").map((child) => {
+                    const ChildIcon = child.icon;
+                    const cActive = pathname === child.href;
+                    return (
+                      <button
+                        key={child.href}
+                        onClick={() => {
+                          router.push(child.href);
+                          setMobileOpen(false);
+                        }}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "0.6rem",
+                          width: "100%",
+                          padding: "0.5rem 0.65rem",
+                          borderRadius: "0.55rem",
+                          border: "none",
+                          background: cActive ? "rgba(212,175,55,0.14)" : "transparent",
+                          color: cActive ? "var(--gold)" : "var(--sidebar-muted)",
+                          fontWeight: cActive ? 600 : 500,
+                          fontSize: "0.82rem",
+                          cursor: "pointer",
+                          transition: "all 0.15s ease",
+                          textAlign: "left",
+                          fontFamily: "inherit",
+                        }}
+                        onMouseOver={(e) => {
+                          if (!cActive) e.currentTarget.style.background = "rgba(255,255,255,0.05)";
+                        }}
+                        onMouseOut={(e) => {
+                          if (!cActive) e.currentTarget.style.background = "transparent";
+                        }}
+                      >
+                        <ChildIcon size={15} color={cActive ? "var(--gold)" : "var(--sidebar-muted)"} />
+                        <span>{child.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
               )}
-              <Icon size={18} color={isActive ? "var(--gold)" : "var(--sidebar-muted)"} />
-              {!isCollapsed && <span>{item.label}</span>}
-            </button>
+            </div>
           );
         })}
       </nav>

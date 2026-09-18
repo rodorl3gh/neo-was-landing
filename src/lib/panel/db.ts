@@ -650,6 +650,137 @@ export function reorderMetas(ordenes: { id: number; orden: number }[]) {
 }
 
 // ------------------------------------------------------------------
+// Historial de metas (últimos 30 días) + desempeño por integrante
+// ------------------------------------------------------------------
+export const META_HISTORY_DAYS = 30;
+
+export function purgeOldCompletedMetas(days = META_HISTORY_DAYS) {
+  try {
+    getDb()
+      .prepare("DELETE FROM metas WHERE estado = 'completada' AND COALESCE(completado_at, created_at) < unixepoch() - ?")
+      .run(days * 86400);
+  } catch {
+    /* la limpieza nunca debe romper la lectura */
+  }
+}
+
+export function getHistorialMetas(days = META_HISTORY_DAYS): MetaWithPasos[] {
+  purgeOldCompletedMetas(days);
+  const metas = getDb()
+    .prepare(
+      "SELECT * FROM metas WHERE estado = 'completada' AND COALESCE(completado_at, created_at) >= unixepoch() - ? ORDER BY COALESCE(completado_at, created_at) DESC"
+    )
+    .all(days * 86400) as Meta[];
+  return attachPasos(metas);
+}
+
+export interface HistorialColabStat {
+  colaborador_id: number | null;
+  completadas: number;
+  aTiempo: number;
+  tarde: number;
+  promedioDias: number;
+  activas: number;
+  puntualidad: number;
+  cumplimiento: number;
+}
+
+export interface HistorialStats {
+  porColaborador: HistorialColabStat[];
+  totales: {
+    completadas: number;
+    aTiempo: number;
+    tarde: number;
+    promedioDias: number;
+    activas: number;
+    puntualidad: number;
+    cumplimiento: number;
+  };
+}
+
+function endOfDaySec(fecha: string): number | null {
+  if (!fecha) return null;
+  const d = new Date(`${fecha}T23:59:59`);
+  if (Number.isNaN(d.getTime())) return null;
+  return Math.floor(d.getTime() / 1000);
+}
+
+function isOnTime(meta: Meta): boolean {
+  const limit = endOfDaySec(meta.fecha_limite);
+  if (limit == null) return true;
+  return (meta.completado_at ?? meta.created_at) <= limit;
+}
+
+function metaParticipants(meta: MetaWithPasos): (number | null)[] {
+  return meta.colaboradores.length > 0 ? meta.colaboradores : [null];
+}
+
+export function getHistorialStats(days = META_HISTORY_DAYS): HistorialStats {
+  const completadas = getHistorialMetas(days);
+  const activas = getMetas().filter((m) => m.estado !== "completada");
+
+  interface Acc {
+    completadas: number;
+    aTiempo: number;
+    tarde: number;
+    dias: number;
+    diasCount: number;
+    activas: number;
+  }
+  const acc = new Map<string, Acc>();
+  const ensure = (id: number | null): Acc => {
+    const key = id == null ? "none" : String(id);
+    if (!acc.has(key)) acc.set(key, { completadas: 0, aTiempo: 0, tarde: 0, dias: 0, diasCount: 0, activas: 0 });
+    return acc.get(key)!;
+  };
+
+  for (const m of completadas) {
+    const onTime = isOnTime(m);
+    const doneAt = m.completado_at ?? m.created_at;
+    const elapsed = Math.max(0, (doneAt - m.created_at) / 86400);
+    for (const id of metaParticipants(m)) {
+      const a = ensure(id);
+      a.completadas++;
+      if (onTime) a.aTiempo++;
+      else a.tarde++;
+      a.dias += elapsed;
+      a.diasCount++;
+    }
+  }
+  for (const m of activas) {
+    for (const id of metaParticipants(m)) ensure(id).activas++;
+  }
+
+  const porColaborador: HistorialColabStat[] = Array.from(acc.entries()).map(([key, a]) => ({
+    colaborador_id: key === "none" ? null : Number(key),
+    completadas: a.completadas,
+    aTiempo: a.aTiempo,
+    tarde: a.tarde,
+    promedioDias: a.diasCount ? Math.round((a.dias / a.diasCount) * 10) / 10 : 0,
+    activas: a.activas,
+    puntualidad: a.completadas ? Math.round((a.aTiempo / a.completadas) * 100) : 0,
+    cumplimiento: a.completadas + a.activas ? Math.round((a.completadas / (a.completadas + a.activas)) * 100) : 0,
+  }));
+  porColaborador.sort((x, y) => y.completadas - x.completadas);
+
+  const doneDias = completadas.reduce((sum, m) => sum + Math.max(0, ((m.completado_at ?? m.created_at) - m.created_at) / 86400), 0);
+  const totales = {
+    completadas: completadas.length,
+    aTiempo: completadas.filter(isOnTime).length,
+    tarde: completadas.filter((m) => !isOnTime(m)).length,
+    promedioDias: completadas.length ? Math.round((doneDias / completadas.length) * 10) / 10 : 0,
+    activas: activas.length,
+    puntualidad: completadas.length ? Math.round((completadas.filter(isOnTime).length / completadas.length) * 100) : 0,
+    cumplimiento:
+      completadas.length + activas.length
+        ? Math.round((completadas.length / (completadas.length + activas.length)) * 100)
+        : 0,
+  };
+
+  return { porColaborador, totales };
+}
+
+// ------------------------------------------------------------------
 // Pasos de una meta
 // ------------------------------------------------------------------
 export function addPaso(metaId: number, texto: string): number {

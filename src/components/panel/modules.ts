@@ -1,5 +1,6 @@
 import {
   LayoutDashboard,
+  LayoutGrid,
   Link2,
   Target,
   Wallet,
@@ -13,6 +14,7 @@ import {
   Bell,
   Settings,
   Building2,
+  History,
   type LucideIcon,
 } from "lucide-react";
 
@@ -22,16 +24,28 @@ export interface Module {
   desc: string;
   icon: LucideIcon;
   superadminOnly?: boolean;
+  children?: Module[];
 }
 
 export const MODULES: Module[] = [
   { href: "/panel", label: "Dashboard", desc: "Resumen general de la operación", icon: LayoutDashboard },
   { href: "/panel/enlaces", label: "Enlaces", desc: "Accesos y recursos del equipo", icon: Link2 },
-  { href: "/panel/metas", label: "Metas", desc: "Metas y actividades por colaborador", icon: Target },
+  { href: "/panel/metas", label: "Metas", desc: "Metas y actividades por colaborador", icon: Target, children: [
+    { href: "/panel/metas", label: "Activas", desc: "Metas pendientes y en proceso", icon: Target },
+    { href: "/panel/metas/historial", label: "Historial", desc: "Metas cumplidas y desempeño", icon: History },
+  ] },
   { href: "/panel/contabilidad", label: "Contabilidad", desc: "Ingresos, egresos y facturación", icon: Wallet },
-  { href: "/panel/clientes", label: "Clientes", desc: "Datos y servicios de cada cliente", icon: Users },
-  { href: "/panel/directorio", label: "Directorio", desc: "Prospectos y clientes por nicho de mercado", icon: Building2 },
-  { href: "/panel/prospectos", label: "Prospectos", desc: "Pipeline de nuevos prospectos", icon: UserPlus },
+  {
+    href: "/panel/directorio",
+    label: "Directorio",
+    desc: "Clientes y prospectos por nicho de mercado",
+    icon: Building2,
+    children: [
+      { href: "/panel/directorio", label: "Todos", desc: "Todos los registros", icon: LayoutGrid },
+      { href: "/panel/clientes", label: "Clientes", desc: "Clientes activos", icon: Users },
+      { href: "/panel/prospectos", label: "Prospectos", desc: "Pipeline de prospectos", icon: UserPlus },
+    ],
+  },
   { href: "/panel/procesos", label: "Procesos", desc: "Trabajo activo con cada cliente", icon: Layers },
   { href: "/panel/contratos", label: "Contratos", desc: "Plantillas y contratos por cliente", icon: FileText },
   { href: "/panel/calendario", label: "Calendario", desc: "Metas y eventos del equipo", icon: CalendarDays },
