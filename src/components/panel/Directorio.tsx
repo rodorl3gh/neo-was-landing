@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Plus, Pencil, Trash2, X, Loader2, Search, Phone, Mail, Building2, Tag, User } from "lucide-react";
+import { Plus, Pencil, Trash2, X, Loader2, Search, Phone, Mail, Building2, Tag, User, CalendarDays, Briefcase } from "lucide-react";
 import PanelShell from "@/components/panel/PanelShell";
 import { apiGet, apiSend } from "@/lib/panel/api";
 import { NICHOS, TIPOS, TIPO_LABELS } from "@/lib/panel/nichos";
@@ -14,6 +14,8 @@ interface Entrada {
   contacto: string;
   telefono: string;
   correo: string;
+  fecha_alta: string;
+  servicio: string;
   notas: string;
 }
 
@@ -21,6 +23,17 @@ const TIPO_COLORS: Record<string, string> = {
   prospecto: "#f59e0b",
   cliente: "#22c55e",
 };
+
+function hoy(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function fmtFecha(value: string): string {
+  if (!value) return "";
+  const d = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return value;
+  return d.toLocaleDateString("es-MX", { day: "2-digit", month: "short", year: "numeric" });
+}
 
 export default function Directorio({ fixedTipo }: { fixedTipo?: "prospecto" | "cliente" }) {
   const [entradas, setEntradas] = useState<Entrada[]>([]);
@@ -40,6 +53,8 @@ export default function Directorio({ fixedTipo }: { fixedTipo?: "prospecto" | "c
   const [formContacto, setFormContacto] = useState("");
   const [formTelefono, setFormTelefono] = useState("");
   const [formCorreo, setFormCorreo] = useState("");
+  const [formFechaAlta, setFormFechaAlta] = useState("");
+  const [formServicio, setFormServicio] = useState("");
   const [formNotas, setFormNotas] = useState("");
 
   const title = fixedTipo === "prospecto" ? "Prospectos" : fixedTipo === "cliente" ? "Clientes" : "Directorio";
@@ -73,7 +88,7 @@ export default function Directorio({ fixedTipo }: { fixedTipo?: "prospecto" | "c
       if (filterTipo && e.tipo !== filterTipo) return false;
       if (filterNicho && e.nicho !== filterNicho) return false;
       if (!q) return true;
-      return [e.negocio, e.contacto, e.telefono, e.correo, e.nicho].join(" ").toLowerCase().includes(q);
+      return [e.negocio, e.contacto, e.telefono, e.correo, e.nicho, e.servicio].join(" ").toLowerCase().includes(q);
     });
   }, [entradas, query, filterTipo, filterNicho, fixedTipo]);
 
@@ -84,6 +99,8 @@ export default function Directorio({ fixedTipo }: { fixedTipo?: "prospecto" | "c
     setFormContacto("");
     setFormTelefono("");
     setFormCorreo("");
+    setFormFechaAlta(hoy());
+    setFormServicio("");
     setFormNotas("");
     setEditing(null);
     setError("");
@@ -103,6 +120,8 @@ export default function Directorio({ fixedTipo }: { fixedTipo?: "prospecto" | "c
     setFormContacto(e.contacto);
     setFormTelefono(e.telefono);
     setFormCorreo(e.correo);
+    setFormFechaAlta(e.fecha_alta || hoy());
+    setFormServicio(e.servicio);
     setFormNotas(e.notas);
     setError("");
     setShowForm(true);
@@ -128,6 +147,8 @@ export default function Directorio({ fixedTipo }: { fixedTipo?: "prospecto" | "c
         contacto: formContacto.trim(),
         telefono: formTelefono.trim(),
         correo: formCorreo.trim(),
+        fecha_alta: formFechaAlta,
+        servicio: formServicio.trim(),
         notas: formNotas.trim(),
       };
       if (editing) {
@@ -257,6 +278,16 @@ export default function Directorio({ fixedTipo }: { fixedTipo?: "prospecto" | "c
                         <Mail size={13} color="var(--text-muted)" /> {e.correo}
                       </a>
                     )}
+                    {e.servicio && (
+                      <span style={{ display: "flex", alignItems: "flex-start", gap: "0.45rem", fontSize: "0.8rem", color: "var(--text-secondary)" }}>
+                        <Briefcase size={13} color="var(--text-muted)" style={{ marginTop: 2, flexShrink: 0 }} /> {e.servicio}
+                      </span>
+                    )}
+                    {e.fecha_alta && (
+                      <span style={{ display: "flex", alignItems: "center", gap: "0.45rem", fontSize: "0.8rem", color: "var(--text-muted)" }}>
+                        <CalendarDays size={13} color="var(--text-muted)" /> Alta: {fmtFecha(e.fecha_alta)}
+                      </span>
+                    )}
                   </div>
                   {e.notas && <div style={{ fontSize: "0.74rem", color: "var(--text-muted)", lineHeight: 1.4 }}>{e.notas}</div>}
                 </div>
@@ -333,6 +364,14 @@ export default function Directorio({ fixedTipo }: { fixedTipo?: "prospecto" | "c
               <div style={fieldGroup}>
                 <label style={lbl}>Correo electrónico</label>
                 <input style={input} value={formCorreo} onChange={(e) => setFormCorreo(e.target.value)} placeholder="contacto@negocio.com" inputMode="email" />
+              </div>
+              <div style={fieldGroup}>
+                <label style={lbl}>Fecha de alta</label>
+                <input type="date" style={input} value={formFechaAlta} onChange={(e) => setFormFechaAlta(e.target.value)} />
+              </div>
+              <div style={fieldGroup}>
+                <label style={lbl}>Servicio que se le ofrece</label>
+                <input style={input} value={formServicio} onChange={(e) => setFormServicio(e.target.value)} placeholder="Ej. Gestión de redes sociales" />
               </div>
               <div style={fieldGroup}>
                 <label style={lbl}>Notas</label>

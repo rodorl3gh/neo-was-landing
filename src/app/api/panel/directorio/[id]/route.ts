@@ -15,7 +15,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   try {
     const body = await req.json();
     const data: Record<string, string> = {};
-    for (const key of ["tipo", "nicho", "negocio", "contacto", "telefono", "correo", "notas"]) {
+    for (const key of ["tipo", "nicho", "negocio", "contacto", "telefono", "correo", "fecha_alta", "servicio", "notas"]) {
       if (body?.[key] !== undefined) data[key] = String(body[key]).trim();
     }
     if (data.nicho === "") return NextResponse.json({ error: "El nicho de mercado es requerido" }, { status: 400 });

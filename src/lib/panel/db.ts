@@ -153,6 +153,8 @@ function runMigrations(db: Database.Database) {
       contacto TEXT NOT NULL DEFAULT '',
       telefono TEXT NOT NULL DEFAULT '',
       correo TEXT NOT NULL DEFAULT '',
+      fecha_alta TEXT NOT NULL DEFAULT '',
+      servicio TEXT NOT NULL DEFAULT '',
       notas TEXT NOT NULL DEFAULT '',
       created_at INTEGER NOT NULL DEFAULT (unixepoch()),
       updated_at INTEGER NOT NULL DEFAULT (unixepoch())
@@ -164,6 +166,10 @@ function runMigrations(db: Database.Database) {
   // Migracion: columnas de usuarios (contraseña cifrada + colaborador vinculado)
   try { db.exec("ALTER TABLE users ADD COLUMN password_enc TEXT NOT NULL DEFAULT ''"); } catch { /* ya existe */ }
   try { db.exec("ALTER TABLE users ADD COLUMN colaborador_id INTEGER"); } catch { /* ya existe */ }
+
+  // Migracion: columnas del directorio (fecha de alta + servicio ofrecido)
+  try { db.exec("ALTER TABLE directorio ADD COLUMN fecha_alta TEXT NOT NULL DEFAULT ''"); } catch { /* ya existe */ }
+  try { db.exec("ALTER TABLE directorio ADD COLUMN servicio TEXT NOT NULL DEFAULT ''"); } catch { /* ya existe */ }
 
   // Migracion: metas compartidas (pasa el responsable existente a la tabla de participantes)
   db.exec(`
@@ -298,6 +304,8 @@ export interface DirectorioEntry {
   contacto: string;
   telefono: string;
   correo: string;
+  fecha_alta: string;
+  servicio: string;
   notas: string;
   created_at: number;
   updated_at: number;
@@ -310,6 +318,8 @@ export interface DirectorioInput {
   contacto?: string;
   telefono?: string;
   correo?: string;
+  fecha_alta?: string;
+  servicio?: string;
   notas?: string;
 }
 
@@ -338,7 +348,7 @@ export function getDirectorio(filters?: { tipo?: string; nicho?: string; q?: str
 export function createDirectorioEntry(data: DirectorioInput): number {
   return getDb()
     .prepare(
-      "INSERT INTO directorio (tipo, nicho, negocio, contacto, telefono, correo, notas) VALUES (?, ?, ?, ?, ?, ?, ?)"
+      "INSERT INTO directorio (tipo, nicho, negocio, contacto, telefono, correo, fecha_alta, servicio, notas) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
     )
     .run(
       data.tipo || "prospecto",
@@ -347,6 +357,8 @@ export function createDirectorioEntry(data: DirectorioInput): number {
       data.contacto || "",
       data.telefono || "",
       data.correo || "",
+      data.fecha_alta || "",
+      data.servicio || "",
       data.notas || ""
     ).lastInsertRowid as number;
 }

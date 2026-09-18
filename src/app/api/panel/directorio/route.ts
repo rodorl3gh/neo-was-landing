@@ -33,6 +33,8 @@ export async function POST(req: NextRequest) {
       contacto: String(body?.contacto || "").trim(),
       telefono: String(body?.telefono || "").trim(),
       correo: String(body?.correo || "").trim(),
+      fecha_alta: String(body?.fecha_alta || "").trim(),
+      servicio: String(body?.servicio || "").trim(),
       notas: String(body?.notas || "").trim(),
     });
     logActivity({
